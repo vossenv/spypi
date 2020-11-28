@@ -1,0 +1,25 @@
+disable_existing_loggers: false
+formatters:
+    standard:
+        datefmt: '%Y-%m-%d %H:%M:%S'
+        format: '%(asctime)s  [%(name)-8.8s]  [%(levelname)-6.6s]  :::  %(message)s'
+    console:
+        format: '%(message)s'
+handlers:
+    console:
+        class: logging.StreamHandler
+        formatter: standard
+        level: DEBUG
+    process:
+        level: DEBUG
+        class: logging.handlers.RotatingFileHandler
+        formatter: standard
+        filename: process.log
+loggers:
+    "":
+        handlers:
+            - console
+            - process
+        level: DEBUG
+        propagate: true
+version: 1

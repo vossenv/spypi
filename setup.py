@@ -17,11 +17,10 @@ def package_files(*dirs):
 
 extra_files = package_files('spypi/resources')
 setup_deps = [
-          'pyinstaller',
           'wheel',
           'twine'
       ],
-setup(name='adobe-serial-tool',
+setup(name='spypi',
       version=__version__,
       description='Spy Pi',
       long_description=long_description,
@@ -36,17 +35,17 @@ setup(name='adobe-serial-tool',
           'spypi': extra_files,
       },
       install_requires=[
-          # 'click',
-          # 'click-default-group',
-          # 'pyyaml'
+          'click',
+          'click-default-group',
+          'pyyaml'
       ],
       extras_require={
           'setup': setup_deps,
       },
       setup_requires=setup_deps,
       entry_points={
-          # 'console_scripts': [
-          #     'askt = adobe_serial_tool.app:cli',
-          # ]
+          'console_scripts': [
+              'spypi = spypi.app:cli',
+          ]
       },
       )
