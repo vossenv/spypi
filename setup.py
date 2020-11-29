@@ -37,7 +37,8 @@ setup(name='spypi',
       install_requires=[
           'click',
           'click-default-group',
-          'pyyaml'
+          'pyyaml',
+          'schema'
       ],
       extras_require={
           'setup': setup_deps,
