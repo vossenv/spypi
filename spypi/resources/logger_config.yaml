@@ -10,16 +10,16 @@ handlers:
         class: logging.StreamHandler
         formatter: standard
         level: DEBUG
-    process:
+    file:
         level: DEBUG
         class: logging.handlers.RotatingFileHandler
         formatter: standard
-        filename: process.log
+        filename: camera.log
 loggers:
     "":
         handlers:
             - console
-            - process
+            - file
         level: DEBUG
         propagate: true
 version: 1

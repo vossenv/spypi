@@ -4,17 +4,27 @@ import click
 import yaml
 from click_default_group import DefaultGroup
 
-from spypi.config import load_config
+from spypi.config import load_config, ConfigValidationError
 from spypi.resources import get_resource
 
-with open(get_resource("logger_config.yaml")) as cfg:
-    logging.config.dictConfig(yaml.safe_load(cfg))
-    logger = logging.getLogger()
-    logger.info("------------------------------- Starting New Run -------------------------------")
+
+def init_logger(filename=None, level='DEBUG'):
+    with open(get_resource("logger_config.yaml")) as cfg:
+        data = yaml.safe_load(cfg)
+        if filename:
+            data['handlers']['file']['filename'] = filename
+        else:
+            data['loggers']['']['handlers'] = ['console']
+        data['loggers']['']['level'] = level.upper()
+        logging.config.dictConfig(data)
+        return logging.getLogger()
+
+
+logger = init_logger()
 
 
 def log_params(params):
-    logger.info("Parameters: " + str(params))
+    logging.info("Parameters: " + str(params))
 
 
 @click.group(cls=DefaultGroup, default='run', default_if_no_args=True, help="Spypy help text")
@@ -28,9 +38,16 @@ def cli(ctx):
     context_settings=dict(max_content_width=400))
 @click.pass_context
 @click.option('-c', '--config-filename', default='config.yaml', type=click.Path(exists=True))
-def run(ctx, key, config_filename):
+def run(ctx, config_filename):
+    try:
+        cfg = load_config(config_filename)
+        init_logger(cfg['logging']['filename'], cfg['logging']['level'])
+    except ConfigValidationError as e:
+        logger.critical(e)
     log_params(ctx.params)
-    cfg = load_config(config_filename)
+
+
+    logger.debug('TEST')
 
     print()
 
