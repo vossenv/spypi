@@ -15,3 +15,7 @@ cleandir:
 
 upload:
 	twine upload -r dev dist/*.whl
+
+deploy:
+	make wheel
+	make upload
