@@ -1,3 +1,4 @@
+import json
 import logging.config
 
 import click
@@ -45,9 +46,6 @@ def run(ctx, config_filename):
     except ConfigValidationError as e:
         logger.critical(e)
     log_params(ctx.params)
-
-
-    logger.debug('TEST')
 
     print()
 
