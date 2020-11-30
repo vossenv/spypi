@@ -1,73 +1,16 @@
 import logging.config
 import os
-import platform
-import site
 
 import click
-import distro
-import requests
 import yaml
 from click_default_group import DefaultGroup
 
-from spypi._version import __version__
+from install import get_environment
 from spypi.config import load_config, ConfigValidationError, CONFIG_DEFAULTS
 from spypi.resources import get_resource
 
-libraries = [
-    'https://github.com/ArduCAM/ArduCAM_USB_Camera_Shield/raw/master/'
-    'RaspberryPi/Python/External_trigger_demo/ArducamSDK.so',
-    'https://github.com/ArduCAM/ArduCAM_USB_Camera_Shield/raw/'
-    'master/RaspberryPi/Python/External_trigger_demo/ArducamSDK.cpython-37m-arm-linux-gnueabihf.so'
-]
 
-
-def get_environment():
-    env_os = platform.system()
-    if env_os.lower() == "windows":
-        env_os_version = platform.version()
-    elif env_os.lower() == "linux":
-        vers = distro.linux_distribution()
-        env_os = vers[0]
-        env_os_version = vers[1] + " " + vers[2]
-    else:
-        raise EnvironmentError("Unknown / unsupported platform: {}".format(env_os))
-    return {
-        'app_version': __version__,
-        'python_version': platform.python_version(),
-        'os': env_os,
-        'os_version': env_os_version
-    }
-
-
-def download_library(url, destination):
-    name = url.split('/')[-1]
-    filename = os.path.join(destination, name)
-    logger.info("Downloading external library '{0}' to '{1}'".format(name, destination))
-    res = requests.get(url)
-    with open(filename, 'wb') as f:
-        f.write(res.content)
-    logger.info("Library installed succesfully!")
-
-
-def resolve_depenencies(camera_type):
-    is_raspbian = 'raspbian' in ENV_METADATA['os'].lower()
-
-    if not is_raspbian and camera_type == 'arducam':
-        raise EnvironmentError("Arducam must be run on Pi/Raspbian")
-
-    if camera_type == 'arducam':
-        try:
-            import ArducamSDK
-        except ModuleNotFoundError:
-            if click.confirm("Arducam library was not found.  Download now?"):
-                libdir = site.getsitepackages()[0]
-                for l in libraries:
-                    download_library(l, libdir)
-            else:
-                click.echo("Please manually install libraries to dist-packages continue: ")
-                for l in libraries:
-                    click.echo(l)
-                exit()
+# import cv2
 
 
 def init_logger(filename=None, level='DEBUG'):
@@ -103,6 +46,7 @@ def cli(ctx):
     ctx.obj = {'help': ctx.get_help()}
 
 
+
 @cli.command(
     help="Start the process",
     context_settings=dict(max_content_width=400))
@@ -115,13 +59,22 @@ def run(ctx, config_filename):
     try:
         cfg = load_config(config_filename)
         init_logger(cfg['logging']['filename'], cfg['logging']['level'])
-        resolve_depenencies(cfg['hardware']['camera'])
+      #  resolve_depenencies(cfg['hardware']['camera'])
         log_meta(ctx.params)
     except ConfigValidationError as e:
         logger.critical(e)
     except PermissionError:
         click.echo("Failed to install dependency - please re-run using sudo!")
 
+
+
+@cli.command(help="Install arducam and openCV")
+@click.option('--no-ardu', type=bool, default=False, is_flag=True)
+@click.pass_context
+def install(ctx, no_ardu):
+    pass
+
+    print()
 
 ENV_METADATA = get_environment()
 logger = init_logger()

@@ -40,9 +40,13 @@ setup(name='spypi',
           'pyyaml',
           'schema',
           'distro',
-          'requests'
+          'requests',
+          'numpy==1.18',
       ],
       extras_require={
+          ':sys_platform=="win32"': [
+              'opencv-python',
+          ],
           'setup': setup_deps,
       },
       setup_requires=setup_deps,
