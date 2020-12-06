@@ -5,7 +5,7 @@ import click
 import yaml
 from click_default_group import DefaultGroup
 
-from install import get_environment
+#from install import get_environment
 from spypi.config import load_config, ConfigValidationError, CONFIG_DEFAULTS
 from spypi.resources import get_resource
 
@@ -80,7 +80,7 @@ def run(ctx, config_filename):
         init_logger(cfg['logging']['filename'], cfg['logging']['level'])
         print("Alive")
       #  resolve_depenencies(cfg['hardware']['camera'])
-        log_meta(ctx.params)
+        #log_meta(ctx.params)
     except ConfigValidationError as e:
         logger.critical(e)
     # except PermissionError:

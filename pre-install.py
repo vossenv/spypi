@@ -10,12 +10,8 @@ import time
 import zipfile
 from os.path import abspath, join
 from pathlib import Path
-from subprocess import Popen, PIPE, STDOUT
+from subprocess import Popen, PIPE, STDOUT, check_output
 from urllib.request import urlretrieve
-
-import distro
-
-from spypi._version import __version__
 
 # curl -L https://git.io/JIcrf | sudo **python3** -
 
@@ -26,6 +22,7 @@ ARDUCAM_LIB_URLS = [
     'https://github.com/ArduCAM/ArduCAM_USB_Camera_Shield/raw/master/RaspberryPi/Python/External_trigger_demo/ArducamSDK.cpython-37m-arm-linux-gnueabihf.so'
 ]
 APT_REQ_PACKAGES = [
+    'python3-dev',
     'libjpeg-dev',
     'libgtk-3-dev',
     'libavcodec-dev',
@@ -37,24 +34,6 @@ APT_REQ_PACKAGES = [
     'libatlas-base-dev',
     'libharfbuzz-dev',
 ]
-
-
-def get_environment():
-    env_os = platform.system()
-    if env_os.lower() == "windows":
-        env_os_version = platform.version()
-    elif env_os.lower() == "linux":
-        vers = distro.linux_distribution()
-        env_os = vers[0]
-        env_os_version = vers[1] + " " + vers[2]
-    else:
-        raise EnvironmentError("Unknown / unsupported platform: {}".format(env_os))
-    return {
-        'app_version': __version__,
-        'python_version': platform.python_version(),
-        'os': env_os,
-        'os_version': env_os_version
-    }
 
 
 def reporthook(count, block_size, total_size):
@@ -130,12 +109,11 @@ def move_repl(src, dst):
 
 
 def validate():
-    env = get_environment()
-    if 'raspbian' not in env['os'].lower():
-        print("This script is meant only for Raspbian")
+    if 'arm' not in platform.machine().lower():
+        print("This script is meant only for Pi Raspbian")
         exit()
 
-    if not env['python_version'].startswith("3.7"):
+    if not platform.python_version().startswith("3.7"):
         print("Please run with python 3.7 only")
         exit()
 
@@ -167,6 +145,13 @@ def configure_dependencies():
         print("->  Installing required package: " + m)
         shell_exec("apt install -y {}".format(m))
 
+    print("Installing pip")
+    try:
+        importlib.import_module('pip')
+    except ImportError:
+        check_output('curl https://bootstrap.pypa.io/get-pip.py | sudo python3 -', shell=True)
+    shell_exec('pip3 install virtualenv')
+
 
 def write_pipconf():
     print("Writing pip.conf")
@@ -183,7 +168,10 @@ def write_pipconf():
 
 def main():
     validate()
+
     sys.stdin = open('/dev/tty')
+    configure_dependencies()
+
     libdir = site.getsitepackages()[0]
     usrlibdir = "/usr/local/lib"
 
@@ -193,8 +181,10 @@ def main():
     install_opencv(libdir, usrlibdir)
     install_arducam(libdir)
     shell_exec('ldconfig -v')
-    configure_dependencies()
     write_pipconf()
+
+    print("Install complete! Now run 'sudo pip3 install spypi'")
+
 
 if __name__ == '__main__':
     main()
