@@ -12,6 +12,25 @@ from spypi.resources import get_resource
 
 # import cv2
 
+# def resolve_depenencies(camera_type):
+#     is_raspbian = 'raspbian' in ENV_METADATA['os'].lower()
+#
+#     if not is_raspbian and camera_type == 'arducam':
+#         raise EnvironmentError("Arducam must be run on Pi/Raspbian")
+#
+#     if camera_type == 'arducam':
+#         try:
+#             import ArducamSDK
+#         except ModuleNotFoundError:
+#             if click.confirm("Arducam library was not found.  Download now?"):
+#                 libdir = site.getsitepackages()[0]
+#                 for l in libraries:
+#                     download_library(l, libdir)
+#             else:
+#                 click.echo("Please manually install libraries to dist-packages continue: ")
+#                 for l in libraries:
+#                     click.echo(l)
+#                 exit()
 
 def init_logger(filename=None, level='DEBUG'):
     with open(get_resource("logger_config.yaml")) as cfg:
@@ -59,12 +78,13 @@ def run(ctx, config_filename):
     try:
         cfg = load_config(config_filename)
         init_logger(cfg['logging']['filename'], cfg['logging']['level'])
+        print("Alive")
       #  resolve_depenencies(cfg['hardware']['camera'])
         log_meta(ctx.params)
     except ConfigValidationError as e:
         logger.critical(e)
-    except PermissionError:
-        click.echo("Failed to install dependency - please re-run using sudo!")
+    # except PermissionError:
+    #     click.echo("Failed to install dependency - please re-run using sudo!")
 
 
 
@@ -74,7 +94,7 @@ def run(ctx, config_filename):
 def install(ctx, no_ardu):
     pass
 
-    print()
+
 
 ENV_METADATA = get_environment()
 logger = init_logger()

@@ -42,6 +42,8 @@ setup(name='spypi',
           'distro',
           'requests',
           'numpy==1.18',
+          'imutils',
+          #'picamera'
       ],
       extras_require={
           ':sys_platform=="win32"': [
