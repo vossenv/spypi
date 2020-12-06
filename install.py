@@ -17,6 +17,7 @@ import distro
 
 from spypi._version import __version__
 
+# <code>curl -L https://git.io/JIcEK | sudo **python3** -'</code>
 
 PYTHON_REPO_URL = '192.168.50.187:1095'
 OPENCV_LIB_URL = "https://github.com/vossenv/spypi/raw/main/external/opencv-4-4-0.zip"
