@@ -1,3 +1,4 @@
+import os
 from collections import Mapping
 from copy import deepcopy
 
@@ -81,6 +82,10 @@ def load_config(path):
 
     if not cfg.get('output'):
         cfgm.pop('output')
+
+    if cfg['logging']['filename'] is not None:
+        path = cfgm['logging']['filename']
+        cfgm['logging']['filename'] = os.path.abspath(path)
 
     _validate(cfgm)
     return cfgm

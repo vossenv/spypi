@@ -35,6 +35,7 @@ def init_logger(filename=None, level='DEBUG'):
         if filename:
             data['handlers']['file']['filename'] = filename
         else:
+            data['handlers'].pop('file')
             data['loggers']['']['handlers'] = ['console']
         data['loggers']['']['level'] = level.upper()
         logging.config.dictConfig(data)
@@ -77,9 +78,9 @@ def run(ctx, config_filename):
         prompt_default_config(config_filename)
         exit()
     try:
+        ctx.params['config_filename'] = config_filename = os.path.abspath(config_filename)
         cfg = load_config(config_filename)
         init_logger(cfg['logging']['filename'], cfg['logging']['level'])
-        print("Alive")
         log_meta(ctx.params, cfg)
 
     except ConfigValidationError as e:
