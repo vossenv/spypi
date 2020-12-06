@@ -1,6 +1,8 @@
+import importlib
 import logging.config
 import logging.config
 import os
+import sys
 
 import click
 import yaml
@@ -10,25 +12,21 @@ from spypi.config import load_config, ConfigValidationError, CONFIG_DEFAULTS
 from spypi.resources import get_environment
 from spypi.resources import get_resource
 
+lib_paths = [
+    '/usr/local/lib',
+    '/usr/local/lib/python3.7/dist-packages'
+]
 
-# from spypi.pre_install import install_opencv, install_arducam
-
-# def checked_import(module, install):
-#     libdir = site.getsitepackages()[0]
-#
-#     try:
-#         importlib.import_module(module)
-#     except ImportError:
-#         if click.confirm("{} library was not found.  Download now?".format(module), default=True):
-#             install(libdir, libdir)
-#         else:
-#             click.echo("Please manually install {} before continuing".format(module))
-#             exit()
-#     try:
-#         importlib.import_module(module)
-#     except ImportError as e:
-#         click.echo(e)
-#         click.echo("Unable to import {}. Cannot continue".format(module))
+for l in lib_paths:
+    if l not in sys.path:
+        sys.path.insert(0, l)
+try:
+    importlib.import_module('cv2')
+    importlib.import_module('ArducamSDK')
+except ImportError:
+    click.echo("Unable to import CV2 - have you run the install script?")
+    click.echo("Find it here: https://github.com/vossenv/spypi")
+    exit()
 
 
 def init_logger(filename=None, level='DEBUG'):
@@ -41,6 +39,9 @@ def init_logger(filename=None, level='DEBUG'):
         data['loggers']['']['level'] = level.upper()
         logging.config.dictConfig(data)
         return logging.getLogger()
+
+
+logger = init_logger()
 
 
 def log_meta(params, cfg):
@@ -81,15 +82,9 @@ def run(ctx, config_filename):
         print("Alive")
         log_meta(ctx.params, cfg)
 
-        import cv2
     except ConfigValidationError as e:
         logger.critical(e)
 
-
-logger = init_logger()
-
-# checked_import('cv2', install_opencv)
-# checked_import('cv2', install_arducam)
 
 if __name__ == '__main__':
     cli()

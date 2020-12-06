@@ -3,7 +3,6 @@ import importlib
 import os
 import platform
 import shutil
-import site
 import sys
 import tarfile
 import time
@@ -13,8 +12,10 @@ from pathlib import Path
 from subprocess import Popen, PIPE, STDOUT, check_output
 from urllib.request import urlretrieve
 
-# curl -L https://git.io/JIcrf | sudo **python3** -
+# curl -L https://git.io/JICfV | sudo python3 -
 
+LIB_PACKAGE_DIR = '/usr/local/lib/python3.7/dist-packages'
+LIB_ROOT_DIR = "/usr/local/lib"
 PYTHON_REPO_URL = '192.168.50.187:1095'
 OPENCV_LIB_URL = "https://github.com/vossenv/spypi/raw/main/external/opencv-4-4-0.zip"
 ARDUCAM_LIB_URLS = [
@@ -82,14 +83,6 @@ def download(url, outputdir):
         os.remove(filepath)
 
 
-def check_module_import(module):
-    try:
-        importlib.import_module(module)
-        return True
-    except ImportError:
-        return False
-
-
 # Starts a shell process.  Inserts "y" key after command  to avoid hangups for shell prompts
 def shell_exec(cmd):
     p = Popen(cmd.split(" "), stdout=PIPE, stdin=PIPE, stderr=STDOUT)
@@ -97,7 +90,6 @@ def shell_exec(cmd):
         try:
             p.stdin.write(b'y\n')
             print(line.rstrip('\n'))
-
         except TypeError:
             print(line.decode().rstrip('\n'))
 
@@ -122,22 +114,21 @@ def validate():
         exit()
 
 
-def install_opencv(libdir, usrlibdir):
-
+def install_opencv():
     print("Downloading OpenCV libraries")
     download(OPENCV_LIB_URL, 'cv2')
 
     for file in glob.glob('cv2/cv2.cpython*.*'):
-        move_repl(file, libdir)
+        move_repl(file, LIB_PACKAGE_DIR)
     for file in glob.glob('cv2/**.*'):
-        move_repl(file, usrlibdir)
+        move_repl(file, LIB_ROOT_DIR)
     shutil.rmtree('cv2')
 
 
-def install_arducam(libdir, usrlibdir=None):
+def install_arducam():
     print("Downloading Arducam libraries")
     for r in ARDUCAM_LIB_URLS:
-        download(r, libdir)
+        download(r, LIB_PACKAGE_DIR)
 
 
 def configure_dependencies():
@@ -173,14 +164,10 @@ def main():
     sys.stdin = open('/dev/tty')
     configure_dependencies()
 
-    libdir = site.getsitepackages()[0]
-    usrlibdir = "/usr/local/lib"
-
-    print("Current python library: " + libdir)
-    print("Usr library dir: " + usrlibdir)
-
-    install_opencv(libdir, usrlibdir)
-    install_arducam(libdir)
+    print("Current python library: " + LIB_PACKAGE_DIR)
+    print("Library root dir: " + LIB_ROOT_DIR)
+    install_opencv()
+    install_arducam()
     shell_exec('ldconfig -v')
     write_pipconf()
 
