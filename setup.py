@@ -7,6 +7,7 @@ from spypi._version import __version__
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
+
 def package_files(*dirs):
     paths = []
     for d in dirs:

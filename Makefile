@@ -14,7 +14,7 @@ cleandir:
 	-$(RM) $(output_dir)
 
 upload:
-	twine upload -r dev dist/*.whl
+	twine upload -r dev dist/*
 
 deploy:
 	make wheel
