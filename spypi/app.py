@@ -5,32 +5,11 @@ import click
 import yaml
 from click_default_group import DefaultGroup
 
-#from install import get_environment
 from spypi.config import load_config, ConfigValidationError, CONFIG_DEFAULTS
+from spypi.resources import get_environment
 from spypi.resources import get_resource
 
-
 # import cv2
-
-# def resolve_depenencies(camera_type):
-#     is_raspbian = 'raspbian' in ENV_METADATA['os'].lower()
-#
-#     if not is_raspbian and camera_type == 'arducam':
-#         raise EnvironmentError("Arducam must be run on Pi/Raspbian")
-#
-#     if camera_type == 'arducam':
-#         try:
-#             import ArducamSDK
-#         except ModuleNotFoundError:
-#             if click.confirm("Arducam library was not found.  Download now?"):
-#                 libdir = site.getsitepackages()[0]
-#                 for l in libraries:
-#                     download_library(l, libdir)
-#             else:
-#                 click.echo("Please manually install libraries to dist-packages continue: ")
-#                 for l in libraries:
-#                     click.echo(l)
-#                 exit()
 
 def init_logger(filename=None, level='DEBUG'):
     with open(get_resource("logger_config.yaml")) as cfg:
@@ -44,14 +23,16 @@ def init_logger(filename=None, level='DEBUG'):
         return logging.getLogger()
 
 
-def log_meta(params):
-    logging.info("App Version: {}".format(ENV_METADATA['app_version']))
-    logging.info("Python Version: {}".format(ENV_METADATA['python_version']))
-    logging.info("Platform: {0} / {1}".format(ENV_METADATA['os'], ENV_METADATA['os_version']))
+def log_meta(params, cfg):
+    meta = get_environment()
+    logging.info("App Version: {}".format(meta['app_version']))
+    logging.info("Python Version: {}".format(meta['python_version']))
+    logging.info("Platform: {0} / {1}".format(meta['os'], meta['os_version']))
     logging.info("CLI Parameters: " + str(params))
+    logging.info("Options: {}".format(cfg))
 
 
-def promt_default_config(filename):
+def prompt_default_config(filename):
     if click.confirm("The specified configuration file '{}' does not exist.\n"
                      "Would you like to initialize the default configuration file with this name?".format(filename)):
         with open(filename, 'w') as f:
@@ -65,7 +46,6 @@ def cli(ctx):
     ctx.obj = {'help': ctx.get_help()}
 
 
-
 @cli.command(
     help="Start the process",
     context_settings=dict(max_content_width=400))
@@ -73,30 +53,17 @@ def cli(ctx):
 @click.option('-c', '--config-filename', default='config.yaml', type=str)
 def run(ctx, config_filename):
     if not os.path.exists(config_filename):
-        promt_default_config(config_filename)
+        prompt_default_config(config_filename)
         exit()
     try:
         cfg = load_config(config_filename)
         init_logger(cfg['logging']['filename'], cfg['logging']['level'])
         print("Alive")
-      #  resolve_depenencies(cfg['hardware']['camera'])
-        #log_meta(ctx.params)
+        log_meta(ctx.params, cfg)
     except ConfigValidationError as e:
         logger.critical(e)
-    # except PermissionError:
-    #     click.echo("Failed to install dependency - please re-run using sudo!")
 
 
-
-@cli.command(help="Install arducam and openCV")
-@click.option('--no-ardu', type=bool, default=False, is_flag=True)
-@click.pass_context
-def install(ctx, no_ardu):
-    pass
-
-
-
-ENV_METADATA = get_environment()
 logger = init_logger()
 
 if __name__ == '__main__':
