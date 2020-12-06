@@ -123,6 +123,7 @@ def validate():
 
 
 def install_opencv(libdir, usrlibdir):
+
     print("Downloading OpenCV libraries")
     download(OPENCV_LIB_URL, 'cv2')
 
@@ -133,7 +134,7 @@ def install_opencv(libdir, usrlibdir):
     shutil.rmtree('cv2')
 
 
-def install_arducam(libdir):
+def install_arducam(libdir, usrlibdir=None):
     print("Downloading Arducam libraries")
     for r in ARDUCAM_LIB_URLS:
         download(r, libdir)

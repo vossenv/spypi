@@ -1,4 +1,5 @@
 import logging.config
+import logging.config
 import os
 
 import click
@@ -9,7 +10,26 @@ from spypi.config import load_config, ConfigValidationError, CONFIG_DEFAULTS
 from spypi.resources import get_environment
 from spypi.resources import get_resource
 
-# import cv2
+
+# from spypi.pre_install import install_opencv, install_arducam
+
+# def checked_import(module, install):
+#     libdir = site.getsitepackages()[0]
+#
+#     try:
+#         importlib.import_module(module)
+#     except ImportError:
+#         if click.confirm("{} library was not found.  Download now?".format(module), default=True):
+#             install(libdir, libdir)
+#         else:
+#             click.echo("Please manually install {} before continuing".format(module))
+#             exit()
+#     try:
+#         importlib.import_module(module)
+#     except ImportError as e:
+#         click.echo(e)
+#         click.echo("Unable to import {}. Cannot continue".format(module))
+
 
 def init_logger(filename=None, level='DEBUG'):
     with open(get_resource("logger_config.yaml")) as cfg:
@@ -60,11 +80,16 @@ def run(ctx, config_filename):
         init_logger(cfg['logging']['filename'], cfg['logging']['level'])
         print("Alive")
         log_meta(ctx.params, cfg)
+
+        import cv2
     except ConfigValidationError as e:
         logger.critical(e)
 
 
 logger = init_logger()
+
+# checked_import('cv2', install_opencv)
+# checked_import('cv2', install_arducam)
 
 if __name__ == '__main__':
     cli()

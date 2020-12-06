@@ -2,6 +2,9 @@
 from os.path import dirname, realpath, join
 import os
 import sys
+import distro
+import platform
+from spypi._version import __version__
 
 __name__ = dirname(__file__).split(os.sep)[-1]
 
@@ -18,20 +21,13 @@ def get_resource(name):
     return path
 
 def get_environment():
-
-    # shell_exec('pip3 install distro')
-    #
-    # import distro
-
     env_os = platform.system()
     if env_os.lower() == "windows":
         env_os_version = platform.version()
     elif env_os.lower() == "linux":
-        env_os_version = platform.machine() + " " + env_os
-
-        # vers = distro.linux_distribution()
-        # env_os = vers[0]
-        #env_os_version = vers[1] + " " + vers[2]
+        vers = distro.linux_distribution()
+        env_os = vers[0]
+        env_os_version = vers[1] + " " + vers[2]
     else:
         raise EnvironmentError("Unknown / unsupported platform: {}".format(env_os))
     return {
