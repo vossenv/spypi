@@ -11,7 +11,8 @@ CONFIG_DEFAULTS = {
         'frame_width': 640,
         'frame_height': 480,
         'start_delay': 2,
-        'init_delay': 5
+        'init_delay': 5,
+        'arducam_registers': None
     },
     'streaming': {
         'name': 'default',
@@ -33,7 +34,7 @@ CONFIG_DEFAULTS = {
     'logging': {
         'level': 'info',
         'filename': None,
-        'stream_log': True
+        'stream_log': False
     },
 
 }
@@ -47,7 +48,8 @@ def config_schema() -> Schema:
             'frame_width': int,
             'frame_height': int,
             'start_delay': Or(float, int),
-            'init_delay': Or(float, int)
+            'init_delay': Or(float, int),
+            'arducam_registers': Or(None, And(str, len)),
         },
         Optional('streaming'): {
             'name': And(str, len),
@@ -85,9 +87,16 @@ def load_config(path):
     if not cfg.get('output'):
         cfgm.pop('output')
 
-    if cfg['logging']['filename'] is not None:
-        path = cfgm['logging']['filename']
+    path = cfgm['logging']['filename']
+    if path is not None:
         cfgm['logging']['filename'] = os.path.abspath(path)
+
+    path = cfgm['hardware']['arducam_registers']
+    if path is not None:
+        path = os.path.abspath(path)
+        if not os.path.exists(path):
+            raise FileNotFoundError("Cannot find {} ".format(path))
+        cfg['hardware']['arducam_registers'] = path
 
     _validate(cfgm)
     return cfgm

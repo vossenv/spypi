@@ -9,6 +9,8 @@ import yaml
 from spypi._version import __version__
 from spypi.resources import get_resource
 
+def is_windows():
+    return platform.system().lower() == "windows"
 
 def get_environment():
     env_os = platform.system()
