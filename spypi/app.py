@@ -1,6 +1,5 @@
 import importlib
 import logging.config
-import logging.config
 import os
 import sys
 
@@ -9,8 +8,7 @@ import yaml
 from click_default_group import DefaultGroup
 
 from spypi.config import load_config, ConfigValidationError, CONFIG_DEFAULTS
-from spypi.resources import get_environment
-from spypi.resources import get_resource
+from spypi.utils import get_environment, init_logger
 
 lib_paths = [
     '/usr/local/lib',
@@ -28,22 +26,7 @@ except ImportError:
     click.echo("Find it here: https://github.com/vossenv/spypi")
     exit()
 
-
-def init_logger(filename=None, level='DEBUG'):
-    with open(get_resource("logger_config.yaml")) as cfg:
-        data = yaml.safe_load(cfg)
-        if filename:
-            data['handlers']['file']['filename'] = filename
-        else:
-            data['handlers'].pop('file')
-            data['loggers']['']['handlers'] = ['console']
-        data['loggers']['']['level'] = level.upper()
-        logging.config.dictConfig(data)
-        return logging.getLogger()
-
-
-logger = init_logger()
-
+logger = init_logger({})
 
 def log_meta(params, cfg):
     meta = get_environment()
@@ -78,9 +61,10 @@ def run(ctx, config_filename):
         prompt_default_config(config_filename)
         exit()
     try:
+
         ctx.params['config_filename'] = config_filename = os.path.abspath(config_filename)
         cfg = load_config(config_filename)
-        init_logger(cfg['logging']['filename'], cfg['logging']['level'])
+        init_logger(cfg['logging'])
         log_meta(ctx.params, cfg)
 
     except ConfigValidationError as e:

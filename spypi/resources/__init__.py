@@ -2,9 +2,7 @@
 from os.path import dirname, realpath, join
 import os
 import sys
-import distro
-import platform
-from spypi._version import __version__
+
 
 __name__ = dirname(__file__).split(os.sep)[-1]
 
@@ -20,19 +18,3 @@ def get_resource(name):
         raise FileNotFoundError("Error: " + path + " does not exist")
     return path
 
-def get_environment():
-    env_os = platform.system()
-    if env_os.lower() == "windows":
-        env_os_version = platform.version()
-    elif env_os.lower() == "linux":
-        vers = distro.linux_distribution()
-        env_os = vers[0]
-        env_os_version = vers[1] + " " + vers[2]
-    else:
-        raise EnvironmentError("Unknown / unsupported platform: {}".format(env_os))
-    return {
-        'app_version': __version__,
-        'python_version': platform.python_version(),
-        'os': env_os,
-        'os_version': env_os_version
-    }

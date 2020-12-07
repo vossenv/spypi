@@ -32,7 +32,8 @@ CONFIG_DEFAULTS = {
     },
     'logging': {
         'level': 'info',
-        'filename': None
+        'filename': None,
+        'stream_log': True
     },
 
 }
@@ -67,7 +68,8 @@ def config_schema() -> Schema:
         },
         'logging': {
             'level': Or('info', 'debug', 'INFO', 'DEBUG'),
-            'filename': Or(None, And(str, len))
+            'filename': Or(None, And(str, len)),
+            'stream_log': Or(None, bool)
         }
     })
 
