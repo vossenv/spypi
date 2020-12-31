@@ -1,16 +1,21 @@
 import json
 import logging
+import threading
 import time
 
-from spypi.error import CameraConfigurationException
+import ArducamSDK
+
+from spypi.ImageConvert import convert_image
+from spypi.error import CameraConfigurationException, ImageCaptureException, USBCameraTaskError, ImageReadException
 from spypi.resources import get_resource
-from spypi.utils import is_windows
+from spypi.utils import show_image
 
 
 class Camera():
 
     def __init__(self, config):
         self.camera_type = config['camera']
+        self.dev_id = config['device_id']
         self.frame_width = config['frame_width']
         self.frame_height = config['frame_height']
         self.start_delay = config['start_delay']
@@ -21,9 +26,9 @@ class Camera():
     def create(cls, config):
         cam = config['camera']
 
-        if is_windows() and not cam == 'usb':
-            raise EnvironmentError(
-                "Cannot use type '{}' on windows - use USB instead.".format(cam))
+        # if is_windows() and not cam == 'usb':
+        #     raise EnvironmentError(
+        #         "Cannot use type '{}' on windows - use USB instead.".format(cam))
 
         if cam == 'arducam':
             return ArduCam(config)
@@ -37,6 +42,12 @@ class Camera():
     def connect(self):
         pass
 
+    def start(self):
+        pass
+
+    def get_next_image(self):
+        pass
+
 
 class PiCam(Camera):
 
@@ -46,7 +57,7 @@ class PiCam(Camera):
     def connect(self):
         from imutils.video import VideoStream
         self.stream = VideoStream(
-            src=0,
+            src=self.dev_id,
             usePiCamera=True,
             resolution=(self.frame_width, self.frame_height),
             framerate=5
@@ -60,11 +71,10 @@ class UsbCam(Camera):
 
     def connect(self):
         from imutils.video import WebcamVideoStream
-        self.stream = WebcamVideoStream(src=0)
+        self.stream = WebcamVideoStream(src=self.dev_id)
 
 
 class ArduCam(Camera):
-    import ArducamSDK
 
     def __init__(self, config):
         super(ArduCam, self).__init__(config)
@@ -82,7 +92,6 @@ class ArduCam(Camera):
         self.handle = {}
         self.width = 0
         self.height = 0
-        self.dev_id = 0
 
         with open(self.register_config_path, 'r') as f:
             self.register_config = json.load(f)
@@ -90,16 +99,21 @@ class ArduCam(Camera):
         self.configure()
         self.set_mode()
 
+        self.logger.info("Start arducam capture thread")
+        start_code = ArducamSDK.Py_ArduCam_beginCaptureImage(self.handle)
+        if start_code != 0:
+            raise ImageCaptureException("Error starting capture thread, code: {}".format(start_code))
+        self.logger.debug("Thread started")
 
     def connect_cam(self):
 
         self.logger.info("Beginning banana scan... ")
-        self.ArducamSDK.Py_ArduCam_scan()
+        ArducamSDK.Py_ArduCam_scan()
 
         ret = -1
         for i in range(3):
             time.sleep(5)
-            ret, self.handle, rtn_cfg = self.ArducamSDK.Py_ArduCam_open(self.cam_config, self.dev_id)
+            ret, self.handle, rtn_cfg = ArducamSDK.Py_ArduCam_open(self.cam_config, self.dev_id)
             if ret == 0:
                 self.usb_version = rtn_cfg['usbType']
                 return
@@ -137,17 +151,17 @@ class ArduCam(Camera):
 
         self.connect_cam()
         self.configure_board("board_parameter")
-        if self.usb_version == self.ArducamSDK.USB_1 or self.usb_version == self.ArducamSDK.USB_2:
+        if self.usb_version == ArducamSDK.USB_1 or self.usb_version == ArducamSDK.USB_2:
             self.configure_board("board_parameter_dev2")
-        if self.usb_version == self.ArducamSDK.USB_3:
+        if self.usb_version == ArducamSDK.USB_3:
             self.configure_board("board_parameter_dev3_inf3")
-        if self.usb_version == self.ArducamSDK.USB_3_2:
+        if self.usb_version == ArducamSDK.USB_3_2:
             self.configure_board("board_parameter_dev3_inf2")
 
         self.write_regs("register_parameter")
-        if self.usb_version == self.ArducamSDK.USB_3:
+        if self.usb_version == ArducamSDK.USB_3:
             self.write_regs("register_parameter_dev3_inf3")
-        if self.usb_version == self.ArducamSDK.USB_3_2:
+        if self.usb_version == ArducamSDK.USB_3_2:
             self.write_regs("register_parameter_dev3_inf2")
 
     def configure_board(self, reg_name):
@@ -160,11 +174,11 @@ class ArduCam(Camera):
             buffsize = r[3]
             for j in range(0, len(r[4])):
                 buffs.append(int(r[4][j], 16))
-            self.ArducamSDK.Py_ArduCam_setboardConfig(self.handle, int(command, 16), int(value, 16), int(index, 16),
-                                                      int(buffsize, 16), buffs)
+            ArducamSDK.Py_ArduCam_setboardConfig(self.handle, int(command, 16), int(value, 16), int(index, 16),
+                                                 int(buffsize, 16), buffs)
 
     def set_mode(self):
-        r = self.ArducamSDK.Py_ArduCam_setMode(self.handle, self.ArducamSDK.CONTINUOUS_MODE)
+        r = ArducamSDK.Py_ArduCam_setMode(self.handle, ArducamSDK.CONTINUOUS_MODE)
         if r != 0:
             raise AssertionError("Failed to set mode: {}".format(r))
 
@@ -180,4 +194,44 @@ class ArduCam(Camera):
                 time.sleep(float(r[1]) / 1000)
                 continue
             self.logger.debug("Writing register to cam {0}: {1}".format(self.dev_id, r))
-            self.ArducamSDK.Py_ArduCam_writeSensorReg(self.handle, int(r[0], 16), int(r[1], 16))
+            ArducamSDK.Py_ArduCam_writeSensorReg(self.handle, int(r[0], 16), int(r[1], 16))
+
+    def capture(self):
+            try:
+                rtn_val = ArducamSDK.Py_ArduCam_captureImage(self.handle)
+                if rtn_val > 255:
+                    if rtn_val == ArducamSDK.USB_CAMERA_USB_TASK_ERROR:
+                        raise USBCameraTaskError("USB task error: {}".format(rtn_val))
+                    raise ImageCaptureException("Error capture image, rtn_val: ".format(rtn_val))
+                time.sleep(0.005)
+            except ImageCaptureException as e:
+                self.logger.warning("Non critical error capturing image: {}".format(str(e)))
+
+    def get_next_image(self):
+
+        self.capture()
+        if ArducamSDK.Py_ArduCam_availableImage(self.handle):
+            rtn_val, data, rtn_cfg = ArducamSDK.Py_ArduCam_readImage(self.handle)
+            datasize = rtn_cfg['u32Size']
+
+            if datasize == 0 or rtn_val != 0:
+                raise ImageReadException("Bad image read: datasize: {0}, code: {1}".format(datasize, rtn_val))
+            ArducamSDK.Py_ArduCam_del(self.handle)
+            return convert_image(data, rtn_cfg, self.color_mode)
+        else:
+            time.sleep(0.001)
+
+
+class FrameViewer(threading.Thread):
+    def __init__(self, cam):
+        super().__init__()
+        self.logger = logging.getLogger("reader")
+        while True:
+            try:
+                image = cam.get_next_image()
+                if image is not None:
+                    show_image(image)
+            except ImageReadException as e:
+                self.logger.warning("Bad image read: {}".format(e))
+
+

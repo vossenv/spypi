@@ -7,20 +7,26 @@ import click
 import yaml
 from click_default_group import DefaultGroup
 
-from spypi.camera import Camera
 from spypi.config import load_config, ConfigValidationError, CONFIG_DEFAULTS
-from spypi.utils import get_environment, init_logger, is_windows
+from spypi.error import ImageReadException
+from spypi.utils import get_environment, init_logger, is_windows, show_image
 
 if not is_windows():
     sys.path.insert(0, '/usr/local/lib')
+    sys.path.insert(0, '/usr/lib/python37.zip')
     sys.path.insert(0, '/usr/local/lib/python3.7/dist-packages')
     try:
         importlib.import_module('cv2')
         importlib.import_module('ArducamSDK')
+        importlib.import_module('picamera')
     except ImportError as e:
         click.echo("Unable to import {} - have you run the install script?".format(e))
         click.echo("Find it here: https://github.com/vossenv/spypi")
         exit()
+else:
+    sys.path.insert(0, os.path.abspath('./lib'))
+
+from spypi.camera import Camera, FrameViewer
 
 logger = init_logger({})
 
@@ -71,7 +77,7 @@ def run(ctx, config_filename):
 
 def init_process(cfg):
     c = Camera.create(cfg['hardware'])
-    print()
+    FrameViewer(c)
 
 
 if __name__ == '__main__':

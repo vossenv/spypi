@@ -34,6 +34,7 @@ APT_REQ_PACKAGES = [
     'screen',
     'libatlas-base-dev',
     'libharfbuzz-dev',
+    'python3-picamera'
 ]
 
 

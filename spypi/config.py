@@ -8,6 +8,7 @@ from schema import Schema, Optional
 CONFIG_DEFAULTS = {
     'hardware': {
         'camera': 'picam',
+        'device_id': 0,
         'frame_width': 640,
         'frame_height': 480,
         'start_delay': 2,
@@ -45,6 +46,7 @@ def config_schema() -> Schema:
     return Schema({
         'hardware': {
             'camera': Or('picam', 'arducam', 'usb'),
+            'device_id': int,
             'frame_width': int,
             'frame_height': int,
             'start_delay': Or(float, int),
