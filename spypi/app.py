@@ -26,7 +26,6 @@ else:
     sys.path.insert(0, os.path.abspath('./lib'))
 
 from spypi.camera import Camera, FrameViewer
-from spypi.error import get_arducam_error_name, ArducamException
 
 logger = init_logger({})
 
@@ -48,37 +47,44 @@ def prompt_default_config(filename):
         click.echo("Generated: {}".format(filename))
 
 
+def init_config(params, config_filename):
+    if not os.path.exists(config_filename):
+        prompt_default_config(config_filename)
+        exit()
+    try:
+        params['config_filename'] = config_filename = os.path.abspath(config_filename)
+        cfg = load_config(config_filename)
+        init_logger(cfg['logging'])
+        log_meta(params, cfg)
+        return cfg
+    except ConfigValidationError as e:
+        logger.critical(e)
+        exit()
+
+
 @click.group(cls=DefaultGroup, default='run', default_if_no_args=True, help="Spypy help text")
 @click.pass_context
 def cli(ctx):
     ctx.obj = {'help': ctx.get_help()}
 
 
-@cli.command(
-    help="Start the process",
-    context_settings=dict(max_content_width=400))
+@cli.command(help="Start the process")
+@click.pass_context
+@click.option('-c', '--config-filename', default='config.yaml', type=str)
+def view(ctx, config_filename):
+    cfg = init_config(ctx.params, config_filename)
+    c = Camera.create(cfg['hardware'])
+    FrameViewer(c)
+
+
+@cli.command(help="Display the feed (requires display)")
 @click.pass_context
 @click.option('-c', '--config-filename', default='config.yaml', type=str)
 def run(ctx, config_filename):
-    if not os.path.exists(config_filename):
-        prompt_default_config(config_filename)
-        exit()
-    try:
-
-        ctx.params['config_filename'] = config_filename = os.path.abspath(config_filename)
-        cfg = load_config(config_filename)
-        init_logger(cfg['logging'])
-        log_meta(ctx.params, cfg)
-        init_process(cfg)
-    except ConfigValidationError as e:
-        logger.critical(e)
-        exit()
-
-
-def init_process(cfg):
-    #raise ArducamException('test', 0xFF25)
-    c = Camera.create(cfg['hardware'])
+    cfg = init_config(ctx.params, config_filename)
+    c = Camera.create(cfg['device'])
     FrameViewer(c)
+
 
 if __name__ == '__main__':
     cli()

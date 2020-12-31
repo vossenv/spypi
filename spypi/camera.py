@@ -110,6 +110,7 @@ class ArduCam(Camera):
             code, self.handle, rtn_cfg = ArducamSDK.Py_ArduCam_open(self.cam_config, self.dev_id)
             if code == 0:
                 self.usb_version = rtn_cfg['usbType']
+                self.logger.info("Camera connected!")
                 return
             time.sleep(1)
         raise ArducamException("Failed to connect to camera", code=code)
@@ -213,5 +214,5 @@ class FrameViewer(threading.Thread):
                 image = cam.get_next_image()
                 if image is not None:
                     show_image(image)
-            except ImageReadException as e:
+            except (ImageReadException, ArducamException) as e:
                 self.logger.warning("Bad image read: {}".format(e))

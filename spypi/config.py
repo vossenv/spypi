@@ -6,7 +6,7 @@ import yaml
 from schema import Schema, Optional
 
 CONFIG_DEFAULTS = {
-    'hardware': {
+    'device': {
         'camera': 'picam',
         'device_id': 0,
         'frame_width': 640,
@@ -44,7 +44,7 @@ CONFIG_DEFAULTS = {
 def config_schema() -> Schema:
     from schema import And, Or
     return Schema({
-        'hardware': {
+        'device': {
             'camera': Or('picam', 'arducam', 'usb'),
             'device_id': int,
             'frame_width': int,
@@ -93,12 +93,12 @@ def load_config(path):
     if path is not None:
         cfgm['logging']['filename'] = os.path.abspath(path)
 
-    path = cfgm['hardware']['arducam_registers']
+    path = cfgm['device']['arducam_registers']
     if path is not None:
         path = os.path.abspath(path)
         if not os.path.exists(path):
             raise FileNotFoundError("Cannot find {} ".format(path))
-        cfg['hardware']['arducam_registers'] = path
+        cfg['device']['arducam_registers'] = path
 
     _validate(cfgm)
     return cfgm
