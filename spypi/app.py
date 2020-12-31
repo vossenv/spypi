@@ -8,8 +8,7 @@ import yaml
 from click_default_group import DefaultGroup
 
 from spypi.config import load_config, ConfigValidationError, CONFIG_DEFAULTS
-from spypi.error import ImageReadException
-from spypi.utils import get_environment, init_logger, is_windows, show_image
+from spypi.utils import get_environment, init_logger, is_windows
 
 if not is_windows():
     sys.path.insert(0, '/usr/local/lib')
@@ -27,6 +26,7 @@ else:
     sys.path.insert(0, os.path.abspath('./lib'))
 
 from spypi.camera import Camera, FrameViewer
+from spypi.error import get_arducam_error_name, ArducamException
 
 logger = init_logger({})
 
@@ -76,9 +76,9 @@ def run(ctx, config_filename):
 
 
 def init_process(cfg):
+    #raise ArducamException('test', 0xFF25)
     c = Camera.create(cfg['hardware'])
     FrameViewer(c)
-
 
 if __name__ == '__main__':
     cli()

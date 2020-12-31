@@ -1,3 +1,13 @@
+import ast
+
+import ArducamSDK
+
+ARDUCAM_ERROR_CODES = {c: n for n, c in vars(ArducamSDK).items()
+                       if isinstance(n, str)
+                       and len(n) > 10
+                       and n.startswith("USB_")}
+
+
 class CameraConfigurationException(BaseException):
     pass
 
@@ -10,28 +20,15 @@ class ImageReadException(BaseException):
     pass
 
 
-class USBCameraTaskError(BaseException):
-    pass
+class ArducamException(BaseException):
+
+    def __init__(self, message, code=None):
+        BaseException.__init__(self)
+        self.root_cause = get_arducam_error_name(code) or "unknown"
+        self.args = (message, code)
+        self.message = "{0}.  Root error is code {1}: '{2}'".format(message, code, self.root_cause)
 
 
-#define USB_CAMERA_NO_ERROR 0x0000
-#define USB_CAMERA_USB_CREATE_ERROR 0xFF01
-#define USB_CAMERA_USB_SET_CONTEXT_ERROR 0xFF02
-#define USB_CAMERA_VR_COMMAND_ERROR 0xFF03
-#define USB_CAMERA_USB_VERSION_ERROR 0xFF04
-#define USB_CAMERA_BUFFER_ERROR 0xFF05
-#define USB_CAMERA_I2C_BIT_ERROR 0xFF0B
-#define USB_CAMERA_I2C_NACK_ERROR 0xFF0C
-#define USB_CAMERA_I2C_TIMEOUT 0xFF0D
-#define USB_CAMERA_USB_TASK_ERROR 0xFF20
-#define USB_CAMERA_DATA_OVERFLOW_ERROR 0xFF21
-#define USB_CAMERA_DATA_LACK_ERROR 0xFF22
-#define USB_CAMERA_FIFO_FULL_ERROR 0xFF23
-#define USB_CAMERA_DATA_LEN_ERROR 0xFF24
-#define USB_CAMERA_FRAME_INDEX_ERROR 0xFF25
-#define USB_CAMERA_USB_TIMEOUT_ERROR 0xFF26
-#define USB_CAMERA_READ_EMPTY_ERROR 0xFF30
-#define USB_CAMERA_DEL_EMPTY_ERROR 0xFF31
-#define USB_CAMERA_SIZE_EXCEED_ERROR 0xFF51
-#define USB_USERDATA_ADDR_ERROR 0xFF61
-#define USB_USERDATA_LEN_ERROR 0xFF62
+def get_arducam_error_name(code):
+    val = ast.literal_eval(str(code))
+    return ARDUCAM_ERROR_CODES.get(val)
