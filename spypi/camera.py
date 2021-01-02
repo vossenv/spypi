@@ -16,8 +16,8 @@ class Camera():
         self.dev_id = config['device_id']
         self.frame_width = config['frame_width']
         self.frame_height = config['frame_height']
-        self.start_delay = config['start_delay']
         self.init_delay = config['init_delay']
+        self.init_retry = config['init_retry']
         self.stream = None
 
     @classmethod
@@ -103,14 +103,14 @@ class ArduCam(Camera):
         self.logger.info("Beginning banana scan... ")
         ArducamSDK.Py_ArduCam_scan()
         code = -1
-        for i in range(10):
+        for i in range(self.init_retry):
             self.logger.info("Attempt: {}".format(i))
             code, self.handle, rtn_cfg = ArducamSDK.Py_ArduCam_open(self.cam_config, self.dev_id)
             if code == 0:
                 self.usb_version = rtn_cfg['usbType']
                 self.logger.info("Camera connected!")
                 return
-            time.sleep(1)
+            time.sleep(self.init_delay)
         raise ArducamException("Failed to connect to camera", code=code)
 
     def configure(self):

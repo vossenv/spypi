@@ -19,8 +19,8 @@ def config_schema() -> Schema:
             'device_id': int,
             'frame_width': int,
             'frame_height': int,
-            'start_delay': Or(float, int),
             'init_delay': Or(float, int),
+            'init_retry': Or(float, int),
             'arducam_registers': Or(None, And(str, len)),
         },
         Optional('connection'): {
@@ -30,10 +30,15 @@ def config_schema() -> Schema:
             'max_retries': int
         },
         Optional('processing'): {
-            'crop_stream': [int, int, int, int],
-            'crop_video': [int, int, int, int],
+            'recording_directory': Or(None, And(str, len)),
+            'record_video': Or(None, bool),
+            'send_video': Or(None, bool),
+            'send_images': Or(None, bool),
+            'image_crop': [int, int, int, int],
+            'video_crop': [int, int, int, int],
+            'video_filesize': Or(float, int),
             'rotation': Or(float, int),
-            'size': [int, int]
+            'image_size': [int, int]
         },
         Optional('logging'): {
             'level': Or('info', 'debug', 'INFO', 'DEBUG'),
@@ -49,8 +54,10 @@ def load_config(path):
     cfgm = merge_dict(CONFIG_DEFAULTS, cfg, True)
 
     path = cfgm['logging']['filename']
-    if path is not None:
-        cfgm['logging']['filename'] = os.path.abspath(path)
+    cfgm['logging']['filename'] = os.path.abspath(path)
+
+    path = cfgm['processing']['recording_directory']
+    cfgm['processing']['recording_directory'] = os.path.abspath(path)
 
     path = cfgm['device']['arducam_registers']
     if path is not None:
