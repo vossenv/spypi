@@ -1,0 +1,22 @@
+device:
+  arducam_registers:    # leave blank for defaults
+  camera: arducam
+  device_id: 0
+  frame_height: 480
+  frame_width: 640
+  init_delay: 5
+  start_delay: 2
+connection:
+  host: http://192.168.50.139:9001
+  max_retries: 5
+  name: default
+  timeout: 10
+logging:
+  filename: cam.log
+  level: info
+  stream_log: false               # Enables logging of sys.out and sys.err
+processing:
+  crop_stream: [ 0, 0, 0, 0 ]     # top, left, bottom, right
+  crop_video: [ 0, 0, 0, 0 ]      # top, left, bottom, right
+  rotation: 0
+  size: [ 512, 384 ]    # witdth, height

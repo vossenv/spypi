@@ -1,14 +1,12 @@
 import json
 import logging
-import threading
 import time
 
 import ArducamSDK
 
 from spypi.ImageConvert import convert_image
-from spypi.error import CameraConfigurationException, ImageReadException, ArducamException
+from spypi.error import CameraConfigurationException, ArducamException
 from spypi.resources import get_resource
-from spypi.utils import show_image
 
 
 class Camera():
@@ -203,16 +201,3 @@ class ArduCam(Camera):
                 return convert_image(data, rtn_cfg, self.color_mode)
             finally:
                 ArducamSDK.Py_ArduCam_del(self.handle)
-
-
-class FrameViewer(threading.Thread):
-    def __init__(self, cam):
-        super().__init__()
-        self.logger = logging.getLogger("reader")
-        while True:
-            try:
-                image = cam.get_next_image()
-                if image is not None:
-                    show_image(image)
-            except (ImageReadException, ArducamException) as e:
-                self.logger.warning("Bad image read: {}".format(e))

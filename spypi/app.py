@@ -1,13 +1,15 @@
 import importlib
 import logging.config
 import os
+import shutil
 import sys
+from os.path import join
 
 import click
-import yaml
 from click_default_group import DefaultGroup
 
-from spypi.config import load_config, ConfigValidationError, CONFIG_DEFAULTS
+from spypi.config import load_config, ConfigValidationError
+from spypi.resources import get_resource
 from spypi.utils import get_environment, init_logger, is_windows
 
 if not is_windows():
@@ -25,7 +27,7 @@ if not is_windows():
 else:
     sys.path.insert(0, os.path.abspath('./lib'))
 
-from spypi.camera import Camera, FrameViewer
+from spypi.process import ImageProcessor, ImagePlayer
 
 logger = init_logger({})
 
@@ -42,8 +44,7 @@ def log_meta(params, cfg):
 def prompt_default_config(filename):
     if click.confirm("The specified configuration file '{}' does not exist.\n"
                      "Would you like to initialize the default configuration file with this name?".format(filename)):
-        with open(filename, 'w') as f:
-            yaml.safe_dump(CONFIG_DEFAULTS, f)
+        shutil.copy(get_resource('config_defaults.yaml'), join(os.getcwd(), 'config.yaml'))
         click.echo("Generated: {}".format(filename))
 
 
@@ -73,8 +74,7 @@ def cli(ctx):
 @click.option('-c', '--config-filename', default='config.yaml', type=str)
 def view(ctx, config_filename):
     cfg = init_config(ctx.params, config_filename)
-    c = Camera.create(cfg['hardware'])
-    FrameViewer(c)
+    ImagePlayer(cfg).run()
 
 
 @cli.command(help="Display the feed (requires display)")
@@ -82,8 +82,7 @@ def view(ctx, config_filename):
 @click.option('-c', '--config-filename', default='config.yaml', type=str)
 def run(ctx, config_filename):
     cfg = init_config(ctx.params, config_filename)
-    c = Camera.create(cfg['device'])
-    FrameViewer(c)
+    ImageProcessor(cfg).run()
 
 
 if __name__ == '__main__':

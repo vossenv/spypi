@@ -5,40 +5,10 @@ from copy import deepcopy
 import yaml
 from schema import Schema, Optional
 
-CONFIG_DEFAULTS = {
-    'device': {
-        'camera': 'picam',
-        'device_id': 0,
-        'frame_width': 640,
-        'frame_height': 480,
-        'start_delay': 2,
-        'init_delay': 5,
-        'arducam_registers': None
-    },
-    'streaming': {
-        'name': 'default',
-        'address': "http://192.168.50.139:9001",
-        'crop': {
-            'top': 0,
-            'left': 0,
-            'bottom': 0,
-            'right': 0,
-        },
-    },
-    'output': {
-        'frame_width': 512,
-        'frame_height': 384,
-        'address': "http://192.168.50.139:9001",
-        'timeout': 10,
-        'max_retries': 5
-    },
-    'logging': {
-        'level': 'info',
-        'filename': None,
-        'stream_log': False
-    },
+from spypi.resources import get_resource
 
-}
+with open(get_resource('config_defaults.yaml')) as f:
+    CONFIG_DEFAULTS = yaml.safe_load(f)
 
 
 def config_schema() -> Schema:
@@ -53,24 +23,19 @@ def config_schema() -> Schema:
             'init_delay': Or(float, int),
             'arducam_registers': Or(None, And(str, len)),
         },
-        Optional('streaming'): {
+        Optional('connection'): {
             'name': And(str, len),
-            'address': And(str, len),
-            'crop': {
-                'top': Or(float, int),
-                'left': Or(float, int),
-                'bottom': Or(float, int),
-                'right': Or(float, int)
-            }
-        },
-        Optional('output'): {
-            'frame_width': int,
-            'frame_height': int,
-            'address': And(str, len),
+            'host': And(str, len),
             'timeout': int,
             'max_retries': int
         },
-        'logging': {
+        Optional('processing'): {
+            'crop_stream': [int, int, int, int],
+            'crop_video': [int, int, int, int],
+            'rotation': Or(float, int),
+            'size': [int, int]
+        },
+        Optional('logging'): {
             'level': Or('info', 'debug', 'INFO', 'DEBUG'),
             'filename': Or(None, And(str, len)),
             'stream_log': Or(None, bool)
@@ -82,12 +47,6 @@ def load_config(path):
     with open(path) as f:
         cfg = yaml.safe_load(f) or {}
     cfgm = merge_dict(CONFIG_DEFAULTS, cfg, True)
-
-    if not cfg.get('streaming'):
-        cfgm.pop('streaming')
-
-    if not cfg.get('output'):
-        cfgm.pop('output')
 
     path = cfgm['logging']['filename']
     if path is not None:
