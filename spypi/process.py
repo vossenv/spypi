@@ -2,6 +2,7 @@ import io
 import logging
 
 import cv2
+import os
 import requests
 
 from spypi.camera import Camera
@@ -49,12 +50,14 @@ class ImageProcessor():
         self.video_crop = processing_config['video_crop']
         self.rotation = processing_config['rotation']
         self.image_size = processing_config['image_size']
+        self.framerate = processing_config['framerate']
 
         if self.record_video:
             self.video_stream = VideoStream(
                 filename_prefix=self.connector.name,
                 directory=self.recording_directory,
-                max_file_size=self.video_filesize
+                max_file_size=self.video_filesize,
+                framerate=self.framerate
             )
 
     def run(self):
@@ -62,11 +65,30 @@ class ImageProcessor():
             try:
                 image = self.camera.get_next_image()
                 if image is not None:
-                    # if self.send_images:
-                    #     self.connector.send_image(image)
+                    if self.send_images:
+                        self.connector.send_image(image)
                     if self.video_stream:
                         self.video_stream.add_frame(image)
 
+            except (ImageReadException, ArducamException) as e:
+                self.logger.warning("Bad image read: {}".format(e))
+
+
+class ImageWriter():
+    def __init__(self, config):
+        self.logger = logging.getLogger("reader")
+        self.camera = Camera.create(config['device'])
+
+    def write_images(self, number):
+        i = 0
+        while i < number:
+            try:
+                image = self.camera.get_next_image()
+                if image is not None:
+                    filename = os.path.abspath("frame-{}.jpg".format(i + 1))
+                    cv2.imwrite(filename, image)
+                    self.logger.info("Wrote {}".format(filename))
+                    i += 1
             except (ImageReadException, ArducamException) as e:
                 self.logger.warning("Bad image read: {}".format(e))
 

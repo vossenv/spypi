@@ -16,11 +16,12 @@ logging:
   level: info
   stream_log: false               # Enables logging of sys.out and sys.err
 processing:
+  framerate: 20
   record_video: false
   recording_directory: video
   send_images: false
   send_video: false
-  video_filesize: 5.0                 # megabytes
+  video_filesize: 25.0                 # megabytes
   image_crop: [ 0, 0, 0, 0 ]     # top, left, bottom, right
   video_crop: [ 0, 0, 0, 0 ]      # top, left, bottom, right
   rotation: 0

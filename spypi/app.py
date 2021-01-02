@@ -27,7 +27,7 @@ if not is_windows():
 else:
     sys.path.insert(0, os.path.abspath('./lib'))
 
-from spypi.process import ImageProcessor, ImagePlayer
+from spypi.process import ImageProcessor, ImagePlayer, ImageWriter
 
 logger = init_logger({})
 
@@ -76,6 +76,13 @@ def view(ctx, config_filename):
     cfg = init_config(ctx.params, config_filename)
     ImagePlayer(cfg).run()
 
+@cli.command(help="Write some test images")
+@click.pass_context
+@click.option('-c', '--config-filename', default='config.yaml', type=str)
+@click.option('-n', '--number', default=1, type=int)
+def single_image(ctx, config_filename, number):
+    cfg = init_config(ctx.params, config_filename)
+    ImageWriter(cfg).write_images(number)
 
 @cli.command(help="Display the feed (requires display)")
 @click.pass_context

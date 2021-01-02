@@ -30,6 +30,7 @@ def config_schema() -> Schema:
             'max_retries': int
         },
         Optional('processing'): {
+            'framerate': int,
             'recording_directory': Or(None, And(str, len)),
             'record_video': Or(None, bool),
             'send_video': Or(None, bool),
