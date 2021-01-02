@@ -1,15 +1,16 @@
 import io
 import logging
 import os
+from datetime import datetime
 
 import cv2
-import imutils
 import requests
 
 from spypi.camera import Camera
 from spypi.error import ImageReadException, ArducamException
 from spypi.model import VideoStream
-from spypi.utils import show_image, crop_image, rotate_image, resize_image
+from spypi.utils import show_image, crop_image, rotate_image, resize_image, draw_rectangle, add_label, \
+    compute_text_scale
 
 
 class Connector:
@@ -42,6 +43,7 @@ class ImageProcessor():
         processing_config = config['processing']
         self.video_stream = None
         self.connector = None
+        self.text_scaling_set = None
         self.record_video = processing_config['record_video']
         self.recording_directory = processing_config['recording_directory']
         self.send_images = processing_config['send_images']
@@ -51,6 +53,8 @@ class ImageProcessor():
         self.rotation = processing_config['rotation']
         self.image_size = processing_config['image_size']
         self.framerate = processing_config['framerate']
+        self.data_bar_height = processing_config['data_bar_height']
+        self.text_pad = processing_config['text_pad']
 
     def run(self):
         self.camera = Camera.create(self.config['device'])
@@ -82,9 +86,31 @@ class ImageProcessor():
         image = rotate_image(image, self.rotation)
         image = crop_image(image, self.crop)
         image = resize_image(image, self.image_size)
-        return image
+        return self.apply_data_bar(image)
 
     def apply_video_transforms(self, image):
+        image = rotate_image(image, self.rotation)
+        return self.apply_data_bar(image)
+
+    def apply_data_bar(self, image):
+        h, w, _ = image.shape
+        label = datetime.now().strftime("%Y-%m-%d: %H:%M:%S:%f")[:-5]
+
+        # Size of black rectangle (by % from CFG)
+        bar_size = round(self.data_bar_height * 0.01 * h)
+
+        # Padding around text (shrinks to 2 for small frames)
+        padding = self.text_pad if h > 300 else 2
+
+        # Calculate the text scaling to fit width and height based on specified bar size.
+        # Only run the first time since this value is fixed and it is an iterative computation
+        if not self.text_scaling_set:
+            self.text_scale, self.text_height = compute_text_scale(label, bar_size, w, padding)
+            self.text_scaling_set = True
+
+        image = draw_rectangle(image, [w, self.text_height], (0, 0, 0))
+        image = add_label(image, label, self.text_scale, (255, 255, 255), padding)
+
         return image
 
 

@@ -25,4 +25,5 @@ processing:
   crop: [ 0, 0, 0, 0 ]     # top, left, bottom, right
   rotation: 0
   image_size:  # width, height (for posted images).  leave lank or comment for no resize
-
+  data_bar_height: 15     # %
+  text_pad: 10

@@ -87,9 +87,33 @@ def show_image(image):
     cv2.waitKey(5)
 
 
-def add_label(image, text):
-    cv2.putText(image, str(text), (10, image.shape[0] - 10),
-                cv2.FONT_HERSHEY_DUPLEX, 0.8, (255, 255, 255), 1, cv2.LINE_AA)
+def compute_text_scale(text, box_h, box_w, pad=10):
+    face = cv2.FONT_HERSHEY_DUPLEX
+    t = text.split("\n")
+    longest = max(t, key=len)
+
+    delta = 0.1
+    scale = delta
+
+    while True:
+        ((tw, th), _) = cv2.getTextSize(longest, face, scale, 1)
+        if th >= box_h - 2 * pad:
+            scale = scale - delta
+            break
+        if tw >= box_w - 2 * pad:
+            scale = scale - delta
+            break
+        else:
+            scale += delta
+
+    ((tw, th), _) = cv2.getTextSize(longest, face, scale, 1)
+    return scale, th + 2 * pad
+
+
+def add_label(image, text, scale=1, color=(255, 255, 255), pad=10):
+    cv2.putText(image, text, (pad, image.shape[0] - pad),
+                cv2.FONT_HERSHEY_DUPLEX, scale, color, 1, cv2.LINE_AA)
+    return image
 
 
 def rotate_image(image, angle):
@@ -97,12 +121,20 @@ def rotate_image(image, angle):
         return image
     return imutils.rotate_bound(image, angle)
 
+
 def resize_image(image, dims):
     if not dims:
-        return  image
+        return image
     if min(dims) <= 0:
         raise ValueError("Dimensions must be positive")
     return cv2.resize(image, (dims[0], dims[1]))
+
+
+def draw_rectangle(image, dims, color=(0, 0, 0)):
+    h, w, _ = image.shape
+    cv2.rectangle(image, (0, h), (dims[0], h - dims[1]), color, -1)
+    return image
+
 
 def crop_image(image, dims):
     if set(dims) == {0}:
