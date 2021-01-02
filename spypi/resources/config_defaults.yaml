@@ -24,4 +24,5 @@ processing:
   video_filesize: 25.0                 # megabytes
   crop: [ 0, 0, 0, 0 ]     # top, left, bottom, right
   rotation: 0
-  image_size: [ 512, 384 ]    # witdth, height
+  image_size:  # width, height (for posted images).  leave lank or comment for no resize
+

@@ -9,7 +9,7 @@ import requests
 from spypi.camera import Camera
 from spypi.error import ImageReadException, ArducamException
 from spypi.model import VideoStream
-from spypi.utils import show_image, crop_image, rotate_image
+from spypi.utils import show_image, crop_image, rotate_image, resize_image
 
 
 class Connector:
@@ -73,7 +73,7 @@ class ImageProcessor():
                     if self.send_images:
                         self.connector.send_image(self.apply_stream_transforms(image))
                     if self.video_stream:
-                        self.video_stream.add_frame(image)
+                        self.video_stream.add_frame(self.apply_video_transforms(image))
 
             except (ImageReadException, ArducamException) as e:
                 self.logger.warning("Bad image read: {}".format(e))
@@ -81,6 +81,7 @@ class ImageProcessor():
     def apply_stream_transforms(self, image):
         image = rotate_image(image, self.rotation)
         image = crop_image(image, self.crop)
+        image = resize_image(image, self.image_size)
         return image
 
     def apply_video_transforms(self, image):

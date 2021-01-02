@@ -97,6 +97,12 @@ def rotate_image(image, angle):
         return image
     return imutils.rotate_bound(image, angle)
 
+def resize_image(image, dims):
+    if not dims:
+        return  image
+    if min(dims) <= 0:
+        raise ValueError("Dimensions must be positive")
+    return cv2.resize(image, (dims[0], dims[1]))
 
 def crop_image(image, dims):
     if set(dims) == {0}:
