@@ -22,7 +22,6 @@ processing:
   send_images: false
   send_video: false
   video_filesize: 25.0                 # megabytes
-  image_crop: [ 0, 0, 0, 0 ]     # top, left, bottom, right
-  video_crop: [ 0, 0, 0, 0 ]      # top, left, bottom, right
+  crop: [ 0, 0, 0, 0 ]     # top, left, bottom, right
   rotation: 0
   image_size: [ 512, 384 ]    # witdth, height

@@ -2,17 +2,19 @@ import logging.config
 import platform
 import socket
 import sys
-import time
 
 import cv2
 import distro
+import imutils
 import yaml
 
 from spypi._version import __version__
 from spypi.resources import get_resource
 
+
 def is_windows():
     return platform.system().lower() == "windows"
+
 
 def get_environment():
     env_os = platform.system()
@@ -84,26 +86,29 @@ def show_image(image):
     cv2.imshow("stream", image)
     cv2.waitKey(5)
 
+
 def add_label(image, text):
     cv2.putText(image, str(text), (10, image.shape[0] - 10),
                 cv2.FONT_HERSHEY_DUPLEX, 0.8, (255, 255, 255), 1, cv2.LINE_AA)
 
 
-def process(image):
-    image = cv2.medianBlur(image, 3)
+def rotate_image(image, angle):
+    if angle == 0:
+        return image
+    return imutils.rotate_bound(image, angle)
 
-    # if self.cam.rotation_angle != 0:
-    #     image = imutils.rotate_bound(image, int(self.cam.rotation_angle))
-    #
-    # if counter % 10 == 0:
-    #     fps = fps_counter.get_fps(10)
-    # if self.cam.show_label:
-    #     self.add_label(image, fps)
-    # if self.cam.show_preview:
-    # show_image(image)
-    # if video is not None:
-    #     video.add_frame(image)
-    #     if counter != 0 and video.size >= self.cam.dump_size:
-    #
-    #        video.dump_async(fps)
 
+def crop_image(image, dims):
+    if set(dims) == {0}:
+        return image
+
+    h, w, _ = image.shape
+    top = round(dims[0] * 0.01 * h)
+    left = round(dims[1] * 0.01 * w)
+    bottom = round(dims[2] * 0.01 * h)
+    right = round(dims[3] * 0.01 * w)
+
+    if (w - left - right) <= 0 or (h - top - bottom) <= 0 or min(dims) < 0:
+        raise ValueError("Crop dimensions exceed area or are negative")
+
+    return image[top:h - bottom, left:w - right, :]

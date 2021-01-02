@@ -35,8 +35,7 @@ def config_schema() -> Schema:
             'record_video': Or(None, bool),
             'send_video': Or(None, bool),
             'send_images': Or(None, bool),
-            'image_crop': [int, int, int, int],
-            'video_crop': [int, int, int, int],
+            'crop': [int, int, int, int],
             'video_filesize': Or(float, int),
             'rotation': Or(float, int),
             'image_size': [int, int]
