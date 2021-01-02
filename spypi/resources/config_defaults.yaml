@@ -4,8 +4,8 @@ device:
   device_id: 0
   frame_height: 480
   frame_width: 640
-  init_delay: 5
-  start_delay: 2
+  init_delay: 1
+  init_retry: 10
 connection:
   host: http://192.168.50.139:9001
   max_retries: 5
@@ -16,7 +16,13 @@ logging:
   level: info
   stream_log: false               # Enables logging of sys.out and sys.err
 processing:
-  crop_stream: [ 0, 0, 0, 0 ]     # top, left, bottom, right
-  crop_video: [ 0, 0, 0, 0 ]      # top, left, bottom, right
+  framerate: 20
+  record_video: false
+  recording_directory: video
+  send_images: false
+  send_video: false
+  video_filesize: 25.0                 # megabytes
+  image_crop: [ 0, 0, 0, 0 ]     # top, left, bottom, right
+  video_crop: [ 0, 0, 0, 0 ]      # top, left, bottom, right
   rotation: 0
-  size: [ 512, 384 ]    # witdth, height
+  image_size: [ 512, 384 ]    # witdth, height

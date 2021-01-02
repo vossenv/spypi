@@ -2,6 +2,8 @@ import logging.config
 import platform
 import socket
 import sys
+import time
+
 import cv2
 import distro
 import yaml
@@ -102,4 +104,6 @@ def process(image):
     # if video is not None:
     #     video.add_frame(image)
     #     if counter != 0 and video.size >= self.cam.dump_size:
-    #         video.dump_async(fps)
+    #
+    #        video.dump_async(fps)
+
