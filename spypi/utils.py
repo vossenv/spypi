@@ -82,6 +82,11 @@ def init_logger(config):
         return logging.getLogger()
 
 
+class Image():
+
+    def __init__(self, image):
+        self.image = image
+
 def show_image(image):
     cv2.imshow("stream", image)
     cv2.waitKey(5)
@@ -89,8 +94,8 @@ def show_image(image):
 
 def compute_text_scale(text, box_h, box_w, pad=10):
     face = cv2.FONT_HERSHEY_DUPLEX
-    t = text.split("\n")
-    longest = max(t, key=len)
+    lines = text.split("\n")
+    longest = max(lines, key=len)
 
     delta = 0.1
     scale = delta
@@ -107,7 +112,7 @@ def compute_text_scale(text, box_h, box_w, pad=10):
             scale += delta
 
     ((tw, th), _) = cv2.getTextSize(longest, face, scale, 1)
-    return scale, th + 2 * pad
+    return scale, th * len(lines) + (len(lines) - 1) * pad
 
 
 def add_label(image, text, scale=1, color=(255, 255, 255), pad=10):

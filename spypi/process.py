@@ -94,7 +94,7 @@ class ImageProcessor():
 
     def apply_data_bar(self, image):
         h, w, _ = image.shape
-        label = datetime.now().strftime("%Y-%m-%d: %H:%M:%S:%f")[:-5]
+        label = datetime.now().strftime("x\n%Y-%m-%d: %H:%M:%S:%f")[:-5]
 
         # Size of black rectangle (by % from CFG)
         bar_size = round(self.data_bar_height * 0.01 * h)
@@ -108,7 +108,7 @@ class ImageProcessor():
             self.text_scale, self.text_height = compute_text_scale(label, bar_size, w, padding)
             self.text_scaling_set = True
 
-        image = draw_rectangle(image, [w, self.text_height], (0, 0, 0))
+        image = draw_rectangle(image, [w, self.text_height + 2 * padding], (0, 0, 0))
         image = add_label(image, label, self.text_scale, (255, 255, 255), padding)
 
         return image
