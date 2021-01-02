@@ -87,37 +87,33 @@ class Image():
     def __init__(self, image):
         self.image = image
 
+
 def show_image(image):
     cv2.imshow("stream", image)
     cv2.waitKey(5)
 
 
-def compute_text_scale(text, box_h, box_w, pad=10):
+def compute_text_scale(text, box_w, pad=10):
     face = cv2.FONT_HERSHEY_DUPLEX
-    lines = text.split("\n")
-    longest = max(lines, key=len)
 
-    delta = 0.1
-    scale = delta
+    longest = max(text, key=len)
 
-    while True:
-        ((tw, th), _) = cv2.getTextSize(longest, face, scale, 1)
-        if th >= box_h - 2 * pad:
-            scale = scale - delta
-            break
-        if tw >= box_w - 2 * pad:
-            scale = scale - delta
-            break
-        else:
-            scale += delta
+    ((w1, _), _) = cv2.getTextSize(longest, face, 1, 1)
+    ((w5, _), _) = cv2.getTextSize(longest, face, 5, 1)
 
-    ((tw, th), _) = cv2.getTextSize(longest, face, scale, 1)
-    return scale, th * len(lines) + (len(lines) - 1) * pad
+    scale = 4 / (w5 - w1) * (box_w - 2 * pad)
+    ((_, hf), _) = cv2.getTextSize(longest, face, scale, 1)
+
+    return scale, hf
 
 
-def add_label(image, text, scale=1, color=(255, 255, 255), pad=10):
-    cv2.putText(image, text, (pad, image.shape[0] - pad),
-                cv2.FONT_HERSHEY_DUPLEX, scale, color, 1, cv2.LINE_AA)
+def add_label(image, text, text_height, scale=1, color=(255, 255, 255), pad=10):
+    y = image.shape[0] - pad
+
+    for l in reversed(text):
+        cv2.putText(image, l, (pad, y),
+                    cv2.FONT_HERSHEY_DUPLEX, scale, color, 1, cv2.LINE_AA)
+        y = y - (text_height + pad)
     return image
 
 

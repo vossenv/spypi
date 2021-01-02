@@ -38,7 +38,7 @@ def config_schema() -> Schema:
             'crop': [int, int, int, int],
             'video_filesize': Or(float, int),
             'rotation': Or(float, int),
-            'data_bar_height': int,
+            'data_bar_size': int,
             'image_size': Or(None, [int, int]),
             'text_pad': int,
         },

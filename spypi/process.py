@@ -53,7 +53,7 @@ class ImageProcessor():
         self.rotation = processing_config['rotation']
         self.image_size = processing_config['image_size']
         self.framerate = processing_config['framerate']
-        self.data_bar_height = processing_config['data_bar_height']
+        self.data_bar_size = processing_config['data_bar_size']
         self.text_pad = processing_config['text_pad']
 
     def run(self):
@@ -94,22 +94,26 @@ class ImageProcessor():
 
     def apply_data_bar(self, image):
         h, w, _ = image.shape
-        label = datetime.now().strftime("x\n%Y-%m-%d: %H:%M:%S:%f")[:-5]
+        label = ['this', 'is', 'a test', datetime.now().strftime("%Y-%m-%d: %H:%M:%S:%f")[:-5]]
 
         # Size of black rectangle (by % from CFG)
-        bar_size = round(self.data_bar_height * 0.01 * h)
+        bar_size = round(self.data_bar_size * 0.01 * w) if w > 300 else 100
 
         # Padding around text (shrinks to 2 for small frames)
         padding = self.text_pad if h > 300 else 2
 
         # Calculate the text scaling to fit width and height based on specified bar size.
-        # Only run the first time since this value is fixed and it is an iterative computation
+        # Only run the first time since this value is fixed
         if not self.text_scaling_set:
-            self.text_scale, self.text_height = compute_text_scale(label, bar_size, w, padding)
             self.text_scaling_set = True
+            self.text_scale, self.text_height = compute_text_scale(label, bar_size, padding)
+            self.vertical_space = self.text_height*len(label) + (len(label) - 1)*padding
 
-        image = draw_rectangle(image, [w, self.text_height + 2 * padding], (0, 0, 0))
-        image = add_label(image, label, self.text_scale, (255, 255, 255), padding)
+        # Draw a box of proper height including between line padding
+        image = draw_rectangle(image, [w, self.vertical_space + 2 * padding], (0, 0, 0))
+
+        # Add labels
+        image = add_label(image, label, self.text_height, self.text_scale, (255, 255, 255), padding)
 
         return image
 
