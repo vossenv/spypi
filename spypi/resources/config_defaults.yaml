@@ -8,7 +8,6 @@ device:
   init_retry: 10
 connection:
   host: http://192.168.50.139:9001
-  max_retries: 5
   name: default
   timeout: 10
 logging:

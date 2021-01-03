@@ -146,49 +146,32 @@ class Connector:
     def __init__(self, config):
         self.logger = logging.getLogger("connector")
         self.host = config['host']
-        self.max_retries = config['max_retries']
         self.name = config['name']
         self.timeout = config['timeout']
-        self.url = "{0}/cameras/{1}/update".format(self.host, self.name)
+        self.image_url = "{0}/cameras/{1}/update".format(self.host, self.name)
+        self.video_url = "{0}/store".format(self.host)
 
     def send_image(self, image):
-
-        image_metadata = {'Test-Header': 5}
-        header = {'Metadata': str(image_metadata)}
-        a_numpy = io.BytesIO(cv2.imencode('.jpg', image)[1])
         try:
-            r = requests.post(url=self.url, files=dict(file=a_numpy), headers=header, timeout=self.timeout)
+            file = io.BytesIO(cv2.imencode('.jpg', image)[1])
+            self.send_files(url=self.image_url, files=dict(file=file), headers={})
         except Exception as e:
             self.logger.error(e)
 
-    # def post_files(self, *files):
-    #     status = 0
-    #     headers = {}
-    #     for f in files:
-    #
-    #         if isinstance(f, tuple):
-    #             headers['File-Destination'] = f[1]
-    #             f = f[0]
-    #
-    #         filesize = "%0.3f MB" % round(os.path.getsize(os.path.abspath(f)) / 1000000.0, 4)
-    #         headers['Size'] = filesize
-    #
-    #         for i in range(1, self.max_retries + 1):
-    #             try:
-    #                 reprint("Sending " + f + " (" + filesize + ") .... Attempt " + str(i) + "/" + str(self.max_retries))
-    #                 r = requests.post(url=output_options['fileserver_address'] + "/store", headers=headers,
-    #                                   files=dict(file=open(f, 'rb')), timeout=self.timeout)
-    #                 reprint("Result: " + str(r.status_code) + ": " + str(r.content))
-    #                 status += r.status_code
-    #                 if status % 200 == 0:
-    #                     reprint("Removing " + f)
-    #                     self.remove_files(f)
-    #                 break
-    #             except Exception as e:
-    #                 status = -1
-    #             if i == self.max_retries: reprint("Max tries exceeded, aborting transfers... ")
-    #             reprint("Status " + str(status))
-    #             if status % 200 != 0:
-    #                 reprint("Failed to complete upload: " + f + ". Size: " + filesize + ". Error: " + str(e))
-    #
-    #     return status
+    def send_video(self, path):
+        try:
+            filesize = round(os.stat(path).st_size * 1e-6, 2)
+            headers = {'Size': str(filesize)}
+            file = open(path, 'rb')
+            self.logger.debug("Sending video {0} ({1} MB)".format(path, filesize))
+            return self.send_files(url=self.video_url, files=dict(file=file), headers=headers)
+        except Exception as e:
+            self.logger.error(e)
+
+    def send_files(self, url, files, headers=None, timeout=None):
+        headers = headers or {}
+        timeout = timeout or self.timeout
+        r = requests.post(url=url, files=files, headers=headers, timeout=timeout)
+        if r.status_code != 200:
+            self.logger.error(r.content)
+        return True

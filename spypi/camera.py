@@ -2,7 +2,6 @@ import json
 import logging
 import threading
 import time
-from copy import deepcopy
 
 import ArducamSDK
 
@@ -84,11 +83,12 @@ class ArduCam(Camera):
         self.register_config = {}
         self.cam_config = {}
         self.handle = {}
-        self.running = False
+        self.valid = False
         self.color_mode = None
         self.save_flag = False
         self.save_raw = False
         self.handle = {}
+        self.first = True
         self.width = 0
         self.height = 0
         self.field_index = 0
@@ -103,7 +103,9 @@ class ArduCam(Camera):
             self.register_config = json.load(f)
 
         self.configure()
-        self.capture = ImageCaptureThread(self)
+        tc = threading.Thread(target=self.capture_image)
+        # tr = threading.Thread(target=self.read)
+        tc.start()
 
     def start_capture(self):
         self.logger.info("Start arducam capture thread")
@@ -203,12 +205,36 @@ class ArduCam(Camera):
             ArducamSDK.Py_ArduCam_writeSensorReg(self.handle, int(r[0], 16), int(r[1], 16))
 
     def get_next_image(self):
-        self.counter.increment()
-        return deepcopy(self.capture.image)
+
+
+        if ArducamSDK.Py_ArduCam_availableImage(self.handle) and self.valid:
+            try:
+                rtn_val, data, rtn_cfg = ArducamSDK.Py_ArduCam_readImage(self.handle)
+                if rtn_cfg['u32Size'] == 0 or rtn_val != 0:
+                    raise ArducamException("Bad image read! Datasize was {}".format(rtn_cfg['u32Size']),
+                                           code=rtn_val)
+                self.counter.increment()
+                return convert_image(data, rtn_cfg, self.color_mode)
+            finally:
+                ArducamSDK.Py_ArduCam_del(self.handle)
+
+    def capture_image(self):
+        self.logger.info("Start arducam capture thread")
+        start_code = ArducamSDK.Py_ArduCam_beginCaptureImage(self.handle)
+        if start_code != 0:
+            raise ArducamException("Error starting capture thread", code=start_code)
+        self.logger.debug("Thread started")
+        while True:
+            code = ArducamSDK.Py_ArduCam_captureImage(self.handle)
+            if code > 255:
+                self.valid = False
+                self.logger.error(ArducamException("Error capturing image", code=code))
+            else:
+                self.valid = True
 
     def get_extra_label_info(self):
 
-        if self.data_fields['TIME'] == 0:
+        if self.data_fields['LUM2'] == 0:
             self.data_fields['LUM2'] = ArducamSDK.Py_ArduCam_readSensorReg(self.handle, int(12546))[1]
         if self.field_index == 0 or self.data_fields['TIME'] == 0:
             self.data_fields['TIME'] = ArducamSDK.Py_ArduCam_readSensorReg(self.handle, int(12644))[1]
@@ -226,46 +252,6 @@ class ArduCam(Camera):
             self.data_fields['LUM2'])]
 
 
-class ImageCaptureThread():
-
-    def __init__(self, cam):
-
-        self.logger = logging.getLogger("cam_{}: ".format(cam.dev_id))
-        self.cam = cam
-        self.image = None
-        self.start()
-
-    def start(self):
-        self.logger.info("Beginning image capture process")
-        tc = threading.Thread(target=self.capture_image)
-        tr = threading.Thread(target=self.read)
-        tc.start()
-        tr.start()
-
-    def read(self):
-        while True:
-            if ArducamSDK.Py_ArduCam_availableImage(self.cam.handle):
-                try:
-                    rtn_val, data, rtn_cfg = ArducamSDK.Py_ArduCam_readImage(self.cam.handle)
-                    if rtn_cfg['u32Size'] == 0 or rtn_val != 0:
-                        raise ArducamException("Bad image read! Datasize was {}".format(rtn_cfg['u32Size']),
-                                               code=rtn_val)
-                    self.image = convert_image(data, rtn_cfg, self.cam.color_mode)
-                finally:
-                    ArducamSDK.Py_ArduCam_del(self.cam.handle)
-
-    def capture_image(self):
-        self.logger.info("Start arducam capture thread")
-        start_code = ArducamSDK.Py_ArduCam_beginCaptureImage(self.cam.handle)
-        if start_code != 0:
-            raise ArducamException("Error starting capture thread", code=start_code)
-        self.logger.debug("Thread started")
-        while True:
-            code = ArducamSDK.Py_ArduCam_captureImage(self.cam.handle)
-            if code > 255:
-                self.logger.error(ArducamException("Error capturing image", code=code))
-
-
 class FPSCounter():
 
     def __init__(self):
@@ -276,7 +262,7 @@ class FPSCounter():
     def increment(self):
         self.count += 1
         self.time = time.perf_counter()
-        if self.count > 60:
+        if self.count > 100:
             self.count = 0
             self.time0 = time.perf_counter()
             self.time = self.time0

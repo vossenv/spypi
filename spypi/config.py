@@ -27,7 +27,6 @@ def config_schema() -> Schema:
             'name': And(str, len),
             'host': And(str, len),
             'timeout': int,
-            'max_retries': int
         },
         Optional('processing'): {
             'framerate': int,

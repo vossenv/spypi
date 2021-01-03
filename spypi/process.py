@@ -1,8 +1,12 @@
 import logging
 import os
+import threading
+import time
 from datetime import datetime
+from os.path import join
 
 import cv2
+import glob
 
 from spypi.camera import Camera
 from spypi.error import ImageReadException, ArducamException
@@ -46,6 +50,9 @@ class ImageProcessor():
                 fps=self.framerate
             )
 
+        if self.video_stream and self.send_video:
+            threading.Thread(target=self.stream_directory).start()
+
         while True:
             try:
                 image = self.camera.get_next_image()
@@ -56,7 +63,9 @@ class ImageProcessor():
                         self.video_stream.add_frame(self.apply_video_transforms(image))
 
             except (ImageReadException, ArducamException) as e:
-                self.logger.warning("Bad image read: {}".format(e))
+                self.logger.warning(e)
+            except Exception as e:
+                self.logger.error("Unknown error encountered: {}".format(e))
 
     def apply_stream_transforms(self, image):
         image = im.rotate(image, self.rotation)
@@ -73,11 +82,11 @@ class ImageProcessor():
         h, w, _ = image.shape
         label = [datetime.now().strftime("%Y-%m-%d: %H:%M:%S:%f")[:-5]]
 
-        if self.count % 30 == 0:
+        if self.count % 100 == 0:
             fps = str(self.camera.counter.get_fps())
             label[0] += " @ " + fps + " FPS"
-            # self.extra = self.camera.get_extra_label_info()
-            # label.extend(self.extra)
+            self.extra = self.camera.get_extra_label_info()
+            label.extend(self.extra)
 
         # Size of black rectangle (by % from CFG)
         bar_size = round(self.data_bar_size * 0.01 * w) if w > 300 else 100
@@ -99,6 +108,17 @@ class ImageProcessor():
         image = im.add_label(image, label, self.text_height, self.text_scale, (255, 255, 255), padding)
 
         return image
+
+    def stream_directory(self):
+        pattern = join(self.recording_directory, "*.avi")
+        while True:
+            for file in glob.glob(pattern):
+                if file.split(os.sep)[-1].startswith("LOCKED"):
+                    continue
+                result = self.connector.send_video(file)
+                if result is True:
+                    os.unlink(file)
+            time.sleep(10)
 
 
 class ImageWriter():
