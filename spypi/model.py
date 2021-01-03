@@ -1,16 +1,12 @@
 import io
 import logging
 import os
-import threading
-import time
 from datetime import datetime
 from os.path import join
 
 import cv2
 import imutils
 import requests
-
-from spypi.utils import is_windows
 
 
 class ImageManip():
@@ -94,13 +90,8 @@ class VideoStream():
         self.logger = logging.getLogger("video")
         self.fps = fps
         self.writer = self.get_writer()
-        self.async_dump = is_windows()
         self.output_counter = 0
         os.makedirs(self.directory, exist_ok=True)
-
-        if self.async_dump:
-            dumper = threading.Thread(target=self.dump_thread)
-            dumper.start()
 
     def get_filename(self):
         return join(self.directory, "LOCKED-{0}-{1}.avi".format(
@@ -112,19 +103,6 @@ class VideoStream():
                                self.fps, (1280, 964))
 
     def add_frame(self, frame):
-        if self.async_dump:
-            self.frames.append(frame)
-        else:
-            self.dump_frame(frame)
-
-    def dump_thread(self):
-        while True:
-            try:
-                self.dump_frame(self.frames.pop(0))
-            except IndexError:
-                time.sleep(0.1)
-
-    def dump_frame(self, frame):
         self.writer.write(frame)
         if self.output_counter % 20 == 0:
             self.output_counter = 0
@@ -175,3 +153,5 @@ class Connector:
         if r.status_code != 200:
             self.logger.error(r.content)
         return True
+
+
