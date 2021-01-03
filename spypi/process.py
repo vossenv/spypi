@@ -2,6 +2,7 @@ import logging
 import os
 import threading
 import time
+from collections import deque
 from datetime import datetime
 from os.path import join
 
@@ -36,6 +37,9 @@ class ImageProcessor():
         self.data_bar_size = processing_config['data_bar_size']
         self.text_pad = processing_config['text_pad']
         self.count = 0
+        self.extra = []
+        self.images = deque(maxlen=50)
+        self.video = deque(maxlen=50)
 
     def run(self):
 
@@ -50,6 +54,12 @@ class ImageProcessor():
                 fps=self.framerate
             )
 
+        if self.send_images:
+            threading.Thread(target=self.handle_image).start()
+
+        if self.video_stream:
+            threading.Thread(target=self.handle_video).start()
+
         if self.video_stream and self.send_video:
             threading.Thread(target=self.stream_directory).start()
 
@@ -57,21 +67,41 @@ class ImageProcessor():
             try:
                 image = self.camera.get_next_image()
                 if image is not None:
-                    if self.send_images:
-                        self.apply_stream_transforms(image)
-                        #self.connector.send_image(self.apply_stream_transforms(image))
-                    # if self.video_stream:
-                    #     self.video_stream.add_frame(self.apply_video_transforms(image))
-
+                    self.images.append(image)
+                    self.video.append(image)
+                    if self.count % 20 == 0:
+                        fps = str(self.camera.counter.get_fps())
+                        self.extra = self.camera.get_extra_label_info()
+                        self.logger.info(fps)
+                        self.count = 0
+                    self.count += 1
             except (ImageReadException, ArducamException) as e:
                 self.logger.warning(e)
             except Exception as e:
                 self.logger.error("Unknown error encountered: {}".format(e))
 
+    def handle_image(self):
+        while True:
+            try:
+                i = self.images.pop()
+                self.connector.send_image(self.apply_stream_transforms(i))
+            except IndexError:
+                time.sleep(0.001)
+                pass
+
+    def handle_video(self):
+        while True:
+            try:
+                i = self.video.pop()
+                self.video_stream.add_frame(self.apply_video_transforms(i))
+            except IndexError:
+                time.sleep(0.001)
+                pass
+
     def apply_stream_transforms(self, image):
-        # image = im.rotate(image, self.rotation)
-        # image = im.crop(image, self.crop)
-        # image = im.resize(image, self.image_size)
+        image = im.rotate(image, self.rotation)
+        image = im.crop(image, self.crop)
+        image = im.resize(image, self.image_size)
         return self.apply_data_bar(image)
 
     def apply_video_transforms(self, image):
@@ -83,13 +113,12 @@ class ImageProcessor():
         h, w, _ = image.shape
         label = [datetime.now().strftime("%Y-%m-%d: %H:%M:%S:%f")[:-5]]
 
-        if self.count % 100 == 0:
-            fps = str(self.camera.counter.get_fps())
-            label[0] += " @ " + fps + " FPS"
-            self.extra = self.camera.get_extra_label_info()
-            label.extend(self.extra)
-            self.logger.info(fps)
-        return
+        # if self.count % 100 == 0:
+        #     fps = str(self.camera.counter.get_fps())
+        #     label[0] += " @ " + fps + " FPS"
+        #     self.extra = self.camera.get_extra_label_info()
+        label.extend(self.extra)
+        #    self.logger.info(fps)
         # Size of black rectangle (by % from CFG)
         bar_size = round(self.data_bar_size * 0.01 * w) if w > 300 else 100
 
