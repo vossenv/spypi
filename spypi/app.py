@@ -19,13 +19,14 @@ if not is_windows():
     try:
         importlib.import_module('cv2')
         importlib.import_module('ArducamSDK')
-        importlib.import_module('picamera')
+        #importlib.import_module('picamera')
     except ImportError as e:
         click.echo("Unable to import {} - have you run the install script?".format(e))
         click.echo("Find it here: https://github.com/vossenv/spypi")
         exit()
 else:
     sys.path.insert(0, os.path.abspath('./lib'))
+
 
 from spypi.process import ImageProcessor, ImagePlayer, ImageWriter
 
