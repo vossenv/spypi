@@ -204,15 +204,28 @@ class ArduCam(Camera):
             self.logger.debug("Writing register to cam {0}: {1}".format(self.dev_id, r))
             ArducamSDK.Py_ArduCam_writeSensorReg(self.handle, int(r[0], 16), int(r[1], 16))
 
+    # def get_next_image(self):
+    #
+    #
+    #     if ArducamSDK.Py_ArduCam_availableImage(self.handle) and self.valid:
+    #         try:
+    #             rtn_val, data, rtn_cfg = ArducamSDK.Py_ArduCam_readImage(self.handle)
+    #             if rtn_cfg['u32Size'] == 0 or rtn_val != 0:
+    #                 raise ArducamException("Bad image read! Datasize was {}".format(rtn_cfg['u32Size']),
+    #                                        code=rtn_val)
+    #             self.counter.increment()
+    #             return convert_image(data, rtn_cfg, self.color_mode)
+    #         finally:
+    #             ArducamSDK.Py_ArduCam_del(self.handle)
     def get_next_image(self):
-
-
-        if ArducamSDK.Py_ArduCam_availableImage(self.handle) and self.valid:
+        code = ArducamSDK.Py_ArduCam_captureImage(self.handle)
+        if code > 255:
+            raise ArducamException("Error capturing image", code=code)
+        if ArducamSDK.Py_ArduCam_availableImage(self.handle):
             try:
                 rtn_val, data, rtn_cfg = ArducamSDK.Py_ArduCam_readImage(self.handle)
                 if rtn_cfg['u32Size'] == 0 or rtn_val != 0:
-                    raise ArducamException("Bad image read! Datasize was {}".format(rtn_cfg['u32Size']),
-                                           code=rtn_val)
+                    raise ArducamException("Bad image read! Datasize was {}".format(rtn_cfg['u32Size']), code=rtn_val)
                 self.counter.increment()
                 return convert_image(data, rtn_cfg, self.color_mode)
             finally:
@@ -224,13 +237,14 @@ class ArduCam(Camera):
         if start_code != 0:
             raise ArducamException("Error starting capture thread", code=start_code)
         self.logger.debug("Thread started")
-        while True:
-            code = ArducamSDK.Py_ArduCam_captureImage(self.handle)
-            if code > 255:
-                self.valid = False
-                self.logger.error(ArducamException("Error capturing image", code=code))
-            else:
-                self.valid = True
+        # while True:
+        #     code = ArducamSDK.Py_ArduCam_captureImage(self.handle)
+        #     if code > 255:
+        #         self.valid = False
+        #         self.logger.error(ArducamException("Error capturing image", code=code))
+        #     else:
+        #         self.valid = True
+
 
     def get_extra_label_info(self):
 

@@ -58,9 +58,10 @@ class ImageProcessor():
                 image = self.camera.get_next_image()
                 if image is not None:
                     if self.send_images:
-                        self.connector.send_image(self.apply_stream_transforms(image))
-                    if self.video_stream:
-                        self.video_stream.add_frame(self.apply_video_transforms(image))
+                        self.apply_stream_transforms(image)
+                        #self.connector.send_image(self.apply_stream_transforms(image))
+                    # if self.video_stream:
+                    #     self.video_stream.add_frame(self.apply_video_transforms(image))
 
             except (ImageReadException, ArducamException) as e:
                 self.logger.warning(e)
@@ -68,9 +69,9 @@ class ImageProcessor():
                 self.logger.error("Unknown error encountered: {}".format(e))
 
     def apply_stream_transforms(self, image):
-        image = im.rotate(image, self.rotation)
-        image = im.crop(image, self.crop)
-        image = im.resize(image, self.image_size)
+        # image = im.rotate(image, self.rotation)
+        # image = im.crop(image, self.crop)
+        # image = im.resize(image, self.image_size)
         return self.apply_data_bar(image)
 
     def apply_video_transforms(self, image):
@@ -87,7 +88,8 @@ class ImageProcessor():
             label[0] += " @ " + fps + " FPS"
             self.extra = self.camera.get_extra_label_info()
             label.extend(self.extra)
-
+            self.logger.info(fps)
+        return
         # Size of black rectangle (by % from CFG)
         bar_size = round(self.data_bar_size * 0.01 * w) if w > 300 else 100
 
