@@ -3,7 +3,6 @@ import logging
 import os
 import threading
 import time
-from collections import deque
 from datetime import datetime
 from os.path import join
 
@@ -38,8 +37,6 @@ class ImageProcessor():
         self.text_pad = processing_config['text_pad']
         self.count = 0
         self.extra_info = []
-        self.images = deque(maxlen=20)
-        self.video = deque(maxlen=20)
 
     def run(self):
 
@@ -56,44 +53,20 @@ class ImageProcessor():
 
         if self.send_images:
             ImageStreamHandler(
-                self.images,
+                self.camera.next_image,
                 self.apply_stream_transforms,
                 self.connector.send_image
             ).start()
 
         if self.video_stream:
             ImageStreamHandler(
-                self.video,
+                self.camera.next_video_frame,
                 self.apply_video_transforms,
                 self.video_stream.add_frame
             ).start()
 
         if self.video_stream and self.send_video:
             threading.Thread(target=self.send_directory_video).start()
-
-        while True:
-            try:
-                image = self.camera.get_next_image()
-                if image is not None:
-
-                    # add images to respective deques for processing ASYNC
-                    self.images.append(image)
-                    self.video.append(image)
-
-                    # No need to fetch every single frame - it causes data errors
-                    if self.count % 20 == 0:
-                        self.extra_info = self.camera.get_extra_label_info()
-
-                    # Just for metrics
-                    if self.count % 500 == 0:
-                        self.logger.debug("Capture rate: {} FPS".format(self.camera.counter.get_fps()))
-                        self.count = 0
-                    self.count += 1
-
-            except (ImageReadException, ArducamException) as e:
-                self.logger.warning(e)
-            except Exception as e:
-                self.logger.error("Unknown error encountered: {}".format(e))
 
     def apply_stream_transforms(self, image, fps=0):
         image = im.rotate(image, self.rotation)
@@ -110,7 +83,7 @@ class ImageProcessor():
         h, w, _ = image.shape
         time = [datetime.now().strftime("%Y-%m-%d: %H:%M:%S:%f")[:-5]]
         label = ["{0} @ {1} FPS ".format(time, fps)]
-        label.extend(self.extra_info)
+        label.extend(self.camera.extra_info)
 
         # Size of black rectangle (by % from CFG)
         bar_size = round(self.data_bar_size * 0.01 * w) if w > 300 else 100
@@ -146,18 +119,17 @@ class ImageProcessor():
 
 class ImageStreamHandler(threading.Thread):
 
-    def __init__(self, source, transform, handler):
+    def __init__(self, next, transform, handler):
         super().__init__()
         self.transform = transform
         self.handle = handler
-        self.source = source
+        self.next = next
         self.counter = FPSCounter()
 
     def run(self):
         while True:
             try:
-                i = self.source.pop()
-                i = self.transform(i, self.counter.get_fps())
+                i = self.transform(self.next(), self.counter.get_fps())
                 self.handle(i)
                 self.counter.increment()
             except IndexError:
@@ -174,7 +146,7 @@ class ImageWriter():
         i = 0
         while i < number:
             try:
-                image = self.processor.camera.get_next_image()
+                image = self.processor.camera.read_next_frame()
                 if image is not None:
                     filename = os.path.abspath("frame-{}.jpg".format(i + 1))
                     cv2.imwrite(filename, self.processor.apply_stream_transforms(image))
@@ -192,7 +164,7 @@ class ImagePlayer():
     def run(self):
         while True:
             try:
-                image = self.processor.camera.get_next_image()
+                image = self.processor.camera.read_next_frame()
                 if image is not None:
                     im.show(self.processor.apply_stream_transforms(image))
             except (ImageReadException, ArducamException) as e:

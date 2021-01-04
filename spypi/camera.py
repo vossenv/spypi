@@ -1,13 +1,15 @@
 import json
 import logging
+import threading
 import time
+from collections import deque
 
 import ArducamSDK
 
 from spypi.ImageConvert import convert_image
-from spypi.error import CameraConfigurationException, ArducamException
-from spypi.utils import FPSCounter
+from spypi.error import CameraConfigurationException, ArducamException, ImageReadException
 from spypi.resources import get_resource
+from spypi.utils import FPSCounter
 
 
 class Camera():
@@ -20,7 +22,12 @@ class Camera():
         self.init_delay = config['init_delay']
         self.init_retry = config['init_retry']
         self.stream = None
+        self.extra_info = []
+        self.logger = logging.getLogger("camera")
         self.counter = FPSCounter()
+        self.images = deque(maxlen=10)
+        self.video = deque(maxlen=10)
+        self.count = 0
 
     @classmethod
     def create(cls, config):
@@ -34,13 +41,44 @@ class Camera():
 
         raise ValueError("Unknown camera type: {}".format(cam))
 
+    def read_frames(self):
+        while True:
+            try:
+                image = self.read_next_frame()
+                if image is not None:
+
+                    # add images to respective deques for processing ASYNC
+                    self.images.append(image)
+                    self.video.append(image)
+
+                    # No need to fetch every single frame - it causes data errors
+                    if self.count % 50 == 0:
+                        self.extra_info = self.get_extra_label_info()
+
+                    # Just for metrics
+                    if self.count % 500 == 0:
+                        self.logger.debug("Capture rate: {} FPS".format(self.counter.get_fps()))
+                        self.count = 0
+                    self.count += 1
+
+            except (ImageReadException, ArducamException) as e:
+                self.logger.warning(e)
+            except Exception as e:
+                self.logger.error("Unknown error encountered: {}".format(e))
+
     def connect(self):
         pass
 
     def start(self):
         pass
 
-    def get_next_image(self):
+    def next_image(self):
+        return self.images.pop()
+
+    def next_video_frame(self):
+        return self.images.pop()
+
+    def read_next_frame(self):
         pass
 
     def get_extra_label_info(self):
@@ -77,7 +115,6 @@ class ArduCam(Camera):
     def __init__(self, config):
         super(ArduCam, self).__init__(config)
 
-        self.logger = logging.getLogger("arducam")
         self.register_config_path = config['arducam_registers'] or get_resource('default_registers.json')
         self.usb_version = None
         self.register_config = {}
@@ -103,14 +140,14 @@ class ArduCam(Camera):
             self.register_config = json.load(f)
 
         self.configure()
-        # tc = threading.Thread(target=self.capture_image)
-        # # tr = threading.Thread(target=self.read)
-        # tc.start()
+
         self.logger.info("Start arducam capture thread")
         start_code = ArducamSDK.Py_ArduCam_beginCaptureImage(self.handle)
         if start_code != 0:
             raise ArducamException("Error starting capture thread", code=start_code)
         self.logger.debug("Thread started")
+
+        threading.Thread(target=self.read_frames).start()
 
     def start_capture(self):
         self.logger.info("Start arducam capture thread")
@@ -209,7 +246,7 @@ class ArduCam(Camera):
             self.logger.debug("Writing register to cam {0}: {1}".format(self.dev_id, r))
             ArducamSDK.Py_ArduCam_writeSensorReg(self.handle, int(r[0], 16), int(r[1], 16))
 
-    def get_next_image(self):
+    def read_next_frame(self):
         code = ArducamSDK.Py_ArduCam_captureImage(self.handle)
         if code > 255:
             raise ArducamException("Error capturing image", code=code)
