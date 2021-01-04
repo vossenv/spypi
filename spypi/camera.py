@@ -57,7 +57,7 @@ class Camera():
 
                     # Just for metrics
                     if self.count % 500 == 0:
-                        self.logger.debug("Capture rate: {} FPS".format(self.counter.get_fps()))
+                       # self.logger.debug("Capture rate: {} FPS".format(self.counter.get_fps()))
                         self.count = 0
                     self.count += 1
 
@@ -148,6 +148,8 @@ class ArduCam(Camera):
         self.logger.debug("Thread started")
 
         threading.Thread(target=self.read_frames).start()
+
+        self.extra_info = self.get_extra_label_info()
 
     def start_capture(self):
         self.logger.info("Start arducam capture thread")

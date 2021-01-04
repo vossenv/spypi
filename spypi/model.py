@@ -44,7 +44,8 @@ class ImageManip():
     def rotate(image, angle):
         if angle == 0:
             return image
-        return imutils.rotate_bound(image, angle)
+        #return imutils.rotate_bound(image, angle)
+        return image
 
     @staticmethod
     def resize(image, dims):

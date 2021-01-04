@@ -3,6 +3,7 @@ import logging
 import os
 import threading
 import time
+from collections import deque
 from datetime import datetime
 from os.path import join
 
@@ -37,6 +38,9 @@ class ImageProcessor():
         self.text_pad = processing_config['text_pad']
         self.count = 0
         self.extra_info = []
+        self.t = time.perf_counter()
+        self.tx = deque(maxlen=50)
+
 
     def run(self):
 
@@ -52,11 +56,12 @@ class ImageProcessor():
             )
 
         if self.send_images:
-            ImageStreamHandler(
+            self.ish = ImageStreamHandler(
                 self.camera.next_image,
                 self.apply_stream_transforms,
                 self.connector.send_image
-            ).start()
+            )
+            self.ish.start()
 
         if self.video_stream:
             ImageStreamHandler(
@@ -69,10 +74,27 @@ class ImageProcessor():
             threading.Thread(target=self.send_directory_video).start()
 
     def apply_stream_transforms(self, image, fps=0):
+
+
         image = im.rotate(image, self.rotation)
+
+
+
+
         image = im.crop(image, self.crop)
+
         image = im.resize(image, self.image_size)
-        return self.apply_data_bar(image, fps)
+
+        image = self.apply_data_bar(image, fps)
+
+        if self.count % 50 == 0:
+            fps = round(sum(self.ish.fpc.copy())/50,2)
+            lta = round(sum(self.ish.lta.copy())/300,2)
+            self.logger.info("Frame {0} - {1}/{2}".format(self.count, fps, lta))
+        self.count +=1
+
+
+        return image
 
     def apply_video_transforms(self, image, fps=0):
         image = im.rotate(image, self.rotation)
@@ -81,7 +103,7 @@ class ImageProcessor():
     def apply_data_bar(self, image, fps):
 
         h, w, _ = image.shape
-        time = [datetime.now().strftime("%Y-%m-%d: %H:%M:%S:%f")[:-5]]
+        time = datetime.now().strftime("%Y-%m-%d: %H:%M:%S:%f")[:-5]
         label = ["{0} @ {1} FPS ".format(time, fps)]
         label.extend(self.camera.extra_info)
 
@@ -125,11 +147,16 @@ class ImageStreamHandler(threading.Thread):
         self.handle = handler
         self.next = next
         self.counter = FPSCounter()
+        self.fpc = deque(maxlen=50)
+        self.lta = deque(maxlen=300)
 
     def run(self):
         while True:
             try:
-                i = self.transform(self.next(), self.counter.get_fps())
+                f = self.counter.get_fps()
+                self.fpc.append(f)
+                self.lta.append(f)
+                i = self.transform(self.next(), f)
                 self.handle(i)
                 self.counter.increment()
             except IndexError:
