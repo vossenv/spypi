@@ -44,7 +44,8 @@ def config_schema() -> Schema:
         Optional('logging'): {
             'level': Or('info', 'debug', 'INFO', 'DEBUG'),
             'filename': Or(None, And(str, len)),
-            'stream_log': Or(None, bool)
+            'stream_log': Or(None, bool),
+            'fps_log': Or(None, bool),
         }
     })
 

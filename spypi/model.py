@@ -44,8 +44,8 @@ class ImageManip():
     def rotate(image, angle):
         if angle == 0:
             return image
-        #return imutils.rotate_bound(image, angle)
-        return image
+        #eturn cv2.rotate(image, cv2.ROTATE_180, image)
+        return imutils.rotate_bound(image, angle)
 
     @staticmethod
     def resize(image, dims):
@@ -154,5 +154,3 @@ class Connector:
         if r.status_code != 200:
             self.logger.error(r.content)
         return True
-
-

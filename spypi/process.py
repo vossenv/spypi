@@ -36,6 +36,8 @@ class ImageProcessor():
         self.framerate = processing_config['framerate']
         self.data_bar_size = processing_config['data_bar_size']
         self.text_pad = processing_config['text_pad']
+        self.log_fps = self.config['logging']['fps_log']
+        self.camera.log_fps = self.log_fps
 
     def run(self):
 
@@ -55,7 +57,7 @@ class ImageProcessor():
                 self.camera.next_image,
                 self.apply_stream_transforms,
                 self.connector.send_image,
-                True,
+                self.log_fps,
             ).start()
 
         if self.video_stream:
@@ -69,12 +71,10 @@ class ImageProcessor():
             threading.Thread(target=self.send_directory_video).start()
 
     def apply_stream_transforms(self, image, fps=0):
-
-        image = im.rotate(image, self.rotation)
         image = im.crop(image, self.crop)
         image = im.resize(image, self.image_size)
-        image = self.apply_data_bar(image, fps)
-        return image
+        image = im.rotate(image, self.rotation)
+        return self.apply_data_bar(image, fps)
 
     def apply_video_transforms(self, image, fps=0):
         image = im.rotate(image, self.rotation)
@@ -141,7 +141,7 @@ class ImageStreamHandler(threading.Thread):
 
                 if self.count % self.interval == 0 and self.log_fps:
                     fps = round(sum(self.fps_queue) / self.interval, 2)
-                    self.logger.info("{0} frame avg fps: {1}".format(self.interval, fps))
+                    self.logger.info("Stream {0} frame avg fps: {1}".format(self.interval, fps))
                     self.count = 0
                 self.count += 1
                 self.handle(self.transform(self.next(), f))

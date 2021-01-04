@@ -28,6 +28,7 @@ class Camera():
         self.images = deque(maxlen=10)
         self.video = deque(maxlen=10)
         self.count = 0
+        self.log_fps = False
 
     @classmethod
     def create(cls, config):
@@ -56,8 +57,8 @@ class Camera():
                         self.extra_info = self.get_extra_label_info()
 
                     # Just for metrics
-                    if self.count % 500 == 0:
-                       # self.logger.debug("Capture rate: {} FPS".format(self.counter.get_fps()))
+                    if self.count % 500 == 0 and self.log_fps:
+                        self.logger.debug("Capture rate: {} FPS".format(self.counter.get_fps()))
                         self.count = 0
                     self.count += 1
 
