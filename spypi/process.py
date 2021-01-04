@@ -36,11 +36,6 @@ class ImageProcessor():
         self.framerate = processing_config['framerate']
         self.data_bar_size = processing_config['data_bar_size']
         self.text_pad = processing_config['text_pad']
-        self.count = 0
-        self.extra_info = []
-        self.t = time.perf_counter()
-        self.tx = deque(maxlen=50)
-
 
     def run(self):
 
@@ -56,12 +51,12 @@ class ImageProcessor():
             )
 
         if self.send_images:
-            self.ish = ImageStreamHandler(
+            ImageStreamHandler(
                 self.camera.next_image,
                 self.apply_stream_transforms,
-                self.connector.send_image
-            )
-            self.ish.start()
+                self.connector.send_image,
+                True,
+            ).start()
 
         if self.video_stream:
             ImageStreamHandler(
@@ -75,25 +70,10 @@ class ImageProcessor():
 
     def apply_stream_transforms(self, image, fps=0):
 
-
         image = im.rotate(image, self.rotation)
-
-
-
-
         image = im.crop(image, self.crop)
-
         image = im.resize(image, self.image_size)
-
         image = self.apply_data_bar(image, fps)
-
-        if self.count % 50 == 0:
-            fps = round(sum(self.ish.fpc.copy())/50,2)
-            lta = round(sum(self.ish.lta.copy())/300,2)
-            self.logger.info("Frame {0} - {1}/{2}".format(self.count, fps, lta))
-        self.count +=1
-
-
         return image
 
     def apply_video_transforms(self, image, fps=0):
@@ -141,27 +121,33 @@ class ImageProcessor():
 
 class ImageStreamHandler(threading.Thread):
 
-    def __init__(self, next, transform, handler):
+    def __init__(self, next, transform, handler, log_fps=False):
         super().__init__()
         self.transform = transform
         self.handle = handler
         self.next = next
         self.counter = FPSCounter()
-        self.fpc = deque(maxlen=50)
-        self.lta = deque(maxlen=300)
+        self.log_fps = log_fps
+        self.count = 0
+        self.interval = 50
+        self.fps_queue = deque(maxlen=self.interval)
+        self.logger = logging.getLogger("ish")
 
     def run(self):
         while True:
             try:
                 f = self.counter.get_fps()
-                self.fpc.append(f)
-                self.lta.append(f)
-                i = self.transform(self.next(), f)
-                self.handle(i)
+                self.fps_queue.append(f)
+
+                if self.count % self.interval == 0 and self.log_fps:
+                    fps = round(sum(self.fps_queue) / self.interval, 2)
+                    self.logger.info("{0} frame avg fps: {1}".format(self.interval, fps))
+                    self.count = 0
+                self.count += 1
+                self.handle(self.transform(self.next(), f))
                 self.counter.increment()
             except IndexError:
                 time.sleep(0.001)
-                pass
 
 
 class ImageWriter():
