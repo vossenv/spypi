@@ -6,7 +6,7 @@ from collections import deque
 
 import ArducamSDK
 
-from spypi.ImageConvert import convert_image
+from spypi.lib.ImageConvert import convert_image
 from spypi.error import CameraConfigurationException, ArducamException, ImageReadException
 from spypi.resources import get_resource
 from spypi.utils import FPSCounter

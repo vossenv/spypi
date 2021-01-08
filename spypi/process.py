@@ -86,7 +86,7 @@ class ImageProcessor():
 
         h, w, _ = image.shape
         time = datetime.now().strftime("%Y-%m-%d: %H:%M:%S:%f")[:-5]
-        label = ["{0} @ {1} FPS".format(time, fps)] if self.fps_enabled else [time]
+        label = ["{0} @ {1:.2f} FPS".format(time, fps)] if self.fps_enabled else [time]
         label.extend(self.camera.extra_info)
 
         # Size of black rectangle (by % from CFG)

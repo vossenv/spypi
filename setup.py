@@ -17,6 +17,7 @@ def package_files(*dirs):
     return paths
 
 extra_files = package_files('spypi/resources')
+extra_files.extend(package_files('spypi/lib'))
 setup_deps = [
           'wheel',
           'twine'

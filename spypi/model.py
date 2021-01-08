@@ -5,7 +5,6 @@ from datetime import datetime
 from os.path import join
 
 import cv2
-import imutils
 import requests
 
 
@@ -21,6 +20,8 @@ class ImageManip():
         face = cv2.FONT_HERSHEY_DUPLEX
 
         longest = max(text, key=len)
+
+        print(longest)
 
         ((w1, _), _) = cv2.getTextSize(longest, face, 1, 1)
         ((w5, _), _) = cv2.getTextSize(longest, face, 5, 1)
@@ -45,7 +46,7 @@ class ImageManip():
         if angle == 0:
             return image
         return cv2.rotate(image, cv2.ROTATE_180)
-        #return imutils.rotate_bound(image, angle)
+        # return imutils.rotate_bound(image, angle)
 
     @staticmethod
     def resize(image, dims):
