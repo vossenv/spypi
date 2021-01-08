@@ -40,6 +40,7 @@ def config_schema() -> Schema:
             'data_bar_size': int,
             'image_size': Or(None, [int, int]),
             'text_pad': int,
+            'global_fps_enable': Or(None, bool),
         },
         Optional('logging'): {
             'level': Or('info', 'debug', 'INFO', 'DEBUG'),

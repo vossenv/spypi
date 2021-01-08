@@ -36,8 +36,9 @@ class ImageProcessor():
         self.framerate = processing_config['framerate']
         self.data_bar_size = processing_config['data_bar_size']
         self.text_pad = processing_config['text_pad']
+        self.fps_enabled = processing_config['global_fps_enable']
         self.log_fps = self.config['logging']['log_fps']
-        self.camera.log_fps = self.log_fps
+        self.camera.log_fps = self.log_fps and self.fps_enabled
 
     def run(self):
 
@@ -57,6 +58,7 @@ class ImageProcessor():
                 self.camera.next_image,
                 self.apply_stream_transforms,
                 self.connector.send_image,
+                "Web"
             ]).start()
 
         if self.video_stream:
@@ -64,18 +66,19 @@ class ImageProcessor():
                 self.camera.next_video_frame,
                 self.apply_video_transforms,
                 self.video_stream.add_frame,
+                "Video"
             ]).start()
 
         if self.video_stream and self.send_video:
             threading.Thread(target=self.send_directory_video).start()
 
-    def apply_stream_transforms(self, image, fps=0):
+    def apply_stream_transforms(self, image, fps=None):
         image = im.crop(image, self.crop)
         image = im.resize(image, self.image_size)
         image = im.rotate(image, self.rotation)
         return self.apply_data_bar(image, fps)
 
-    def apply_video_transforms(self, image, fps=0):
+    def apply_video_transforms(self, image, fps=None):
         image = im.rotate(image, self.rotation)
         return self.apply_data_bar(image, fps)
 
@@ -83,7 +86,7 @@ class ImageProcessor():
 
         h, w, _ = image.shape
         time = datetime.now().strftime("%Y-%m-%d: %H:%M:%S:%f")[:-5]
-        label = ["{0} @ {1} FPS ".format(time, fps)]
+        label = ["{0} @ {1} FPS".format(time, fps)] if self.fps_enabled else [time]
         label.extend(self.camera.extra_info)
 
         # Size of black rectangle (by % from CFG)
@@ -117,23 +120,26 @@ class ImageProcessor():
                     os.unlink(file)
             time.sleep(10)
 
-    def stream_process(self, next, transform, handle):
+    def stream_process(self, next, transform, handle, name):
         interval = 50
         count = 0
         counter = FPSCounter()
         fps_queue = deque(maxlen=interval)
         while True:
             try:
-                f = counter.get_fps()
-                fps_queue.append(f)
+                if self.fps_enabled:
+                    f = counter.get_fps()
+                    fps_queue.append(f)
 
-                if count % interval == 0 and self.log_fps:
-                    fps = round(sum(fps_queue) / interval, 2)
-                    self.logger.info("Stream {0} frame avg fps: {1}".format(interval, fps))
-                    self.count = 0
-                count += 1
-                handle(transform(next(), f))
-                counter.increment()
+                    if count % interval == 0 and self.log_fps:
+                        fps = round(sum(fps_queue) / interval, 2)
+                        self.logger.info("{0}: {1} frame avg fps: {2}".format(name, interval, fps))
+                        self.count = 0
+                    count += 1
+                    handle(transform(next(), f))
+                    counter.increment()
+                else:
+                    handle(transform(next()))
             except IndexError:
                 time.sleep(0.001)
 
