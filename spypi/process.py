@@ -36,7 +36,7 @@ class ImageProcessor():
         self.framerate = processing_config['framerate']
         self.data_bar_size = processing_config['data_bar_size']
         self.text_pad = processing_config['text_pad']
-        self.log_fps = self.config['logging']['fps_log']
+        self.log_fps = self.config['logging']['log_fps']
         self.camera.log_fps = self.log_fps
 
     def run(self):
@@ -53,19 +53,18 @@ class ImageProcessor():
             )
 
         if self.send_images:
-            ImageStreamHandler(
+            threading.Thread(target=self.stream_process, args=[
                 self.camera.next_image,
                 self.apply_stream_transforms,
                 self.connector.send_image,
-                self.log_fps,
-            ).start()
+            ]).start()
 
         if self.video_stream:
-            ImageStreamHandler(
+            threading.Thread(target=self.stream_process, args=[
                 self.camera.next_video_frame,
                 self.apply_video_transforms,
-                self.video_stream.add_frame
-            ).start()
+                self.video_stream.add_frame,
+            ]).start()
 
         if self.video_stream and self.send_video:
             threading.Thread(target=self.send_directory_video).start()
@@ -118,34 +117,23 @@ class ImageProcessor():
                     os.unlink(file)
             time.sleep(10)
 
-
-class ImageStreamHandler(threading.Thread):
-
-    def __init__(self, next, transform, handler, log_fps=False):
-        super().__init__()
-        self.transform = transform
-        self.handle = handler
-        self.next = next
-        self.counter = FPSCounter()
-        self.log_fps = log_fps
-        self.count = 0
-        self.interval = 50
-        self.fps_queue = deque(maxlen=self.interval)
-        self.logger = logging.getLogger("ish")
-
-    def run(self):
+    def stream_process(self, next, transform, handle):
+        interval = 50
+        count = 0
+        counter = FPSCounter()
+        fps_queue = deque(maxlen=interval)
         while True:
             try:
-                f = self.counter.get_fps()
-                self.fps_queue.append(f)
+                f = counter.get_fps()
+                fps_queue.append(f)
 
-                if self.count % self.interval == 0 and self.log_fps:
-                    fps = round(sum(self.fps_queue) / self.interval, 2)
-                    self.logger.info("Stream {0} frame avg fps: {1}".format(self.interval, fps))
+                if count % interval == 0 and self.log_fps:
+                    fps = round(sum(fps_queue) / interval, 2)
+                    self.logger.info("Stream {0} frame avg fps: {1}".format(interval, fps))
                     self.count = 0
-                self.count += 1
-                self.handle(self.transform(self.next(), f))
-                self.counter.increment()
+                count += 1
+                handle(transform(next(), f))
+                counter.increment()
             except IndexError:
                 time.sleep(0.001)
 

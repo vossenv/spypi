@@ -44,8 +44,8 @@ class ImageManip():
     def rotate(image, angle):
         if angle == 0:
             return image
-        #eturn cv2.rotate(image, cv2.ROTATE_180, image)
-        return imutils.rotate_bound(image, angle)
+        return cv2.rotate(image, cv2.ROTATE_180)
+        #return imutils.rotate_bound(image, angle)
 
     @staticmethod
     def resize(image, dims):
@@ -100,8 +100,7 @@ class VideoStream():
 
     def get_writer(self):
         self.filename = self.get_filename()
-        return cv2.VideoWriter(self.filename, cv2.VideoWriter_fourcc('X', 'V', 'I', 'D'),
-                               self.fps, (1280, 964))
+        return cv2.VideoWriter(self.filename, cv2.VideoWriter_fourcc('X', 'V', 'I', 'D'), self.fps, (1280, 964))
 
     def add_frame(self, frame):
         self.writer.write(frame)

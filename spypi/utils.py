@@ -59,7 +59,7 @@ class StreamToLogger(object):
 def init_logger(config):
     level = config.get('level') or 'DEBUG'
     filename = config.get('filename') or None
-    stream_log = config.get('stream_log') or False
+    stream_log = config.get('log_stdout') or False
 
     level = level.upper()
     with open(get_resource("logger_config.yaml")) as cfg:

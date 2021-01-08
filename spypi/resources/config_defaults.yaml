@@ -13,8 +13,8 @@ connection:
 logging:
   filename: cam.log
   level: info
-  stream_log: false               # Enables logging of sys.out and sys.err
-  fps_log: true
+  log_stdout: false               # Enables logging of sys.out and sys.err
+  log_fps: true
 processing:
   framerate: 20
   record_video: false
