@@ -47,8 +47,8 @@ class Camera():
     def read_frames(self):
         t = time.perf_counter()
         while True and self.running:
-            if (time.perf_counter() - t) > 10:
-                break
+            # if (time.perf_counter() - t) > 10:
+            #     break
             try:
                 image = self.read_next_frame()
                 if image is not None:
@@ -189,17 +189,23 @@ class ArduCam(Camera):
 
     def connect_cam(self):
         self.logger.info("Beginning banana scan... ")
-        ArducamSDK.Py_ArduCam_scan()
-        code = -1
-        for i in range(self.init_retry):
-            self.logger.info("Attempt: {}".format(i))
-            code, self.handle, rtn_cfg = ArducamSDK.Py_ArduCam_open(self.cam_config, self.dev_id)
-            if code == 0:
-                self.usb_version = rtn_cfg['usbType']
-                self.logger.info("Camera connected!")
-                return
-            time.sleep(self.init_delay)
-        raise ArducamException("Failed to connect to camera", code=code)
+        code, self.handle, rtn_cfg = ArducamSDK.Py_ArduCam_autoopen(self.cam_config)
+        if code != 0:
+            raise ArducamException("Failed to connect to camera", code=code)
+        self.usb_version = rtn_cfg['usbType']
+        self.logger.info("Camera connected!")
+        
+        # ArducamSDK.Py_ArduCam_scan()
+        # code = -1
+        # for i in range(self.init_retry):
+        #     self.logger.info("Attempt: {}".format(i))
+        #     code, self.handle, rtn_cfg = ArducamSDK.Py_ArduCam_open(self.cam_config, self.dev_id)
+        #     if code == 0:
+        #         self.usb_version = rtn_cfg['usbType']
+        #         self.logger.info("Camera connected!")
+        #         return
+        #     time.sleep(self.init_delay)
+        # raise ArducamException("Failed to connect to camera", code=code)
 
     def configure(self):
 
@@ -284,12 +290,14 @@ class ArduCam(Camera):
         if ArducamSDK.Py_ArduCam_availableImage(self.handle):
             try:
                 rtn_val, data, rtn_cfg = ArducamSDK.Py_ArduCam_readImage(self.handle)
-                if rtn_cfg['u32Size'] == 0 or rtn_val != 0:
+                #@rtn_val, data, rtn_cfg = ArducamSDK.Py_ArduCam_getSingleFrame(self.handle)
+                if rtn_val != 0 or rtn_cfg['u32Size'] == 0:
                     raise ArducamException("Bad image read! Datasize was {}".format(rtn_cfg['u32Size']), code=rtn_val)
                 self.counter.increment()
                 return convert_image(data, rtn_cfg, self.color_mode)
             finally:
                 ArducamSDK.Py_ArduCam_del(self.handle)
+                ArducamSDK.Py_ArduCam_flush(self.handle)
 
     def get_extra_label_info(self):
 
