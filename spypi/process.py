@@ -14,6 +14,7 @@ from spypi.camera import Camera
 from spypi.error import ImageReadException, ArducamException
 from spypi.model import Connector, VideoStream, ImageManip as im
 from spypi.utils import FPSCounter
+from simple_pid import PID
 
 
 class ImageProcessor():
@@ -46,6 +47,7 @@ class ImageProcessor():
         self.log_extra_info = self.camera.log_extra_info = self.config['logging']['log_extra_info']
         self.camera.log_metrics = self.log_metrics
         self.stream_process = self.sync_stream_process
+        self.web_pid = PID(1, 0.5, 0.05, setpoint=3)
 
     def run(self):
 
