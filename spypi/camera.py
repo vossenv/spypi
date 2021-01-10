@@ -6,9 +6,8 @@ from collections import deque
 
 import ArducamSDK
 
-from spypi import error
-from spypi.lib.ImageConvert import convert_image
 from spypi.error import CameraConfigurationException, ArducamException, ImageReadException
+from spypi.lib.ImageConvert import convert_image
 from spypi.resources import get_resource
 from spypi.utils import FPSCounter
 
@@ -59,7 +58,7 @@ class Camera():
                     if self.log_extra_info and self.count % 300 == 0:
                         self.extra_info = self.get_extra_label_info()
 
-                    #Just for metrics
+                    # Just for metrics
                     if self.count % 500 == 0 and self.log_fps:
                         self.logger.debug("Capture rate: {} FPS".format(self.counter.get_fps()))
                         self.count = 0
@@ -119,7 +118,6 @@ class ArduCam(Camera):
     def __init__(self, config):
         super().__init__(config)
 
-
         self.register_config_path = config['arducam_registers'] or get_resource('default_registers.json')
         self.usb_version = None
         self.register_config = {}
@@ -153,7 +151,6 @@ class ArduCam(Camera):
         self.logger.debug("Thread started")
 
         threading.Thread(target=self.read_frames).start()
-
         self.extra_info = self.get_extra_label_info()
 
     def start_capture(self):
