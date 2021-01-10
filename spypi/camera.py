@@ -194,18 +194,6 @@ class ArduCam(Camera):
             raise ArducamException("Failed to connect to camera", code=code)
         self.usb_version = rtn_cfg['usbType']
         self.logger.info("Camera connected!")
-        
-        # ArducamSDK.Py_ArduCam_scan()
-        # code = -1
-        # for i in range(self.init_retry):
-        #     self.logger.info("Attempt: {}".format(i))
-        #     code, self.handle, rtn_cfg = ArducamSDK.Py_ArduCam_open(self.cam_config, self.dev_id)
-        #     if code == 0:
-        #         self.usb_version = rtn_cfg['usbType']
-        #         self.logger.info("Camera connected!")
-        #         return
-        #     time.sleep(self.init_delay)
-        # raise ArducamException("Failed to connect to camera", code=code)
 
     def configure(self):
 
