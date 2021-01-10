@@ -58,12 +58,12 @@ class Camera():
                     # No need to fetch every single frame - it causes data errors
                     if self.log_extra_info and self.count % 300 == 0:
                         self.extra_info = self.get_extra_label_info()
-                    #
-                    # Just for metrics
-                    # if self.count % 500 == 0 and self.log_fps:
-                    #     self.logger.debug("Capture rate: {} FPS".format(self.counter.get_fps()))
-                    #     self.count = 0
-                    # self.count += 1
+
+                    #Just for metrics
+                    if self.count % 500 == 0 and self.log_fps:
+                        self.logger.debug("Capture rate: {} FPS".format(self.counter.get_fps()))
+                        self.count = 0
+                    self.count += 1
 
             except (ImageReadException, ArducamException) as e:
                 self.logger.warning(e)
