@@ -78,7 +78,7 @@ class ImageProcessor():
 
             tasks.append(self.create_task(
                 self.stream_process,
-                next=self.camera.next_video_frame,
+                next=self.camera.next_image,
                 transform=self.apply_video_transforms,
                 handle=self.video_stream.add_frame,
                 name="Video",
@@ -106,6 +106,9 @@ class ImageProcessor():
         fps_queue = deque(maxlen=interval)
         while True:
             try:
+                img = next()
+                if img is None:
+                    continue
                 if self.fps_enabled:
                     f = counter.get_fps()
                     fps_queue.append(f)
@@ -116,9 +119,9 @@ class ImageProcessor():
                         self.count = 0
                     count += 1
                     counter.increment()
-                    handle(transform(next(), f))
+                    handle(transform(img, f))
                 else:
-                    handle(transform(next()))
+                    handle(transform(img))
             except IndexError:
                 time.sleep(0.001)
             finally:

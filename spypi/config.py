@@ -17,8 +17,7 @@ def config_schema() -> Schema:
         'device': {
             'camera': Or('picam', 'arducam', 'usb'),
             'device_id': int,
-            'frame_width': int,
-            'frame_height': int,
+            'frame_size': Or(None, [int, int]),
             'init_delay': Or(float, int),
             'init_retry': Or(float, int),
             'arducam_registers': Or(None, And(str, len)),

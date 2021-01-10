@@ -2,10 +2,9 @@ device:
   arducam_registers:    # leave blank for defaults - AR0134_960p_Color.json
   camera: arducam
   device_id: 0
-  frame_height: 480
-  frame_width: 640
   init_delay: 1
   init_retry: 10
+  frame_size: [ 1300, 1000 ]
 connection:
   host: http://192.168.50.139:9001
   name: default
