@@ -29,6 +29,7 @@ def config_schema() -> Schema:
         },
         Optional('processing'): {
             'framerate': int,
+            'show_fps': Or(None, bool),
             'use_asyncio': Or(None, bool),
             'recording_directory': Or(None, And(str, len)),
             'record_video': Or(None, bool),
@@ -43,13 +44,12 @@ def config_schema() -> Schema:
             'text_pad': int,
             'web_acq_delay': Or(float, int),
             'video_acq_delay': Or(float, int),
-            'global_fps_enable': Or(None, bool),
         },
         Optional('logging'): {
             'level': Or('info', 'debug', 'INFO', 'DEBUG'),
             'filename': Or(None, And(str, len)),
             'log_stdout': Or(None, bool),
-            'log_fps': Or(None, bool),
+            'log_metrics': Or(None, bool),
             'log_extra_info': Or(None, bool),
             'ignore_warnings': Or(None, bool),
         }

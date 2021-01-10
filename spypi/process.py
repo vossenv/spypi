@@ -38,13 +38,13 @@ class ImageProcessor():
         self.framerate = processing_config['framerate']
         self.data_bar_size = processing_config['data_bar_size']
         self.text_pad = processing_config['text_pad']
-        self.fps_enabled = processing_config['global_fps_enable']
         self.web_acq_delay = processing_config['web_acq_delay']
         self.video_acq_delay = processing_config['video_acq_delay']
-        self.log_fps = self.config['logging']['log_fps']
+        self.show_fps = processing_config['show_fps']
+        self.log_metrics = self.config['logging']['log_metrics']
         self.ignore_warnings = self.camera.ignore_warnings = self.config['logging']['ignore_warnings']
         self.log_extra_info = self.camera.log_extra_info = self.config['logging']['log_extra_info']
-        self.camera.log_fps = self.log_fps and self.fps_enabled
+        self.camera.log_metrics = self.log_metrics
         self.stream_process = self.sync_stream_process
 
     def run(self):
@@ -109,11 +109,11 @@ class ImageProcessor():
                 img = next()
                 if img is None:
                     continue
-                if self.fps_enabled:
+                if self.show_fps:
                     f = counter.get_fps()
                     fps_queue.append(f)
 
-                    if count % interval == 0 and self.log_fps:
+                    if count % interval == 0 and self.log_metrics:
                         fps = round(sum(fps_queue) / interval, 2)
                         self.logger.info("{0}: {1} frame avg fps: {2}".format(name, interval, fps))
                         self.count = 0
@@ -137,11 +137,11 @@ class ImageProcessor():
                 img = next()
                 if img is None:
                     continue
-                if self.fps_enabled:
+                if self.show_fps or self.log_metrics:
                     f = counter.get_fps()
                     fps_queue.append(f)
 
-                    if count % interval == 0 and self.log_fps:
+                    if count % interval == 0 and self.log_metrics:
                         fps = round(sum(fps_queue) / interval, 2)
                         self.logger.info("{0}: {1} frame avg fps: {2}".format(name, interval, fps))
                         self.count = 0
@@ -169,7 +169,7 @@ class ImageProcessor():
 
         h, w, _ = image.shape
         time = datetime.now().strftime("%Y-%m-%d: %H:%M:%S:%f")[:-5]
-        label = ["{0} @ {1:.2f} FPS".format(time, fps)] if self.fps_enabled else [time]
+        label = ["{0} @ {1:.2f} FPS".format(time, fps)] if self.show_fps else [time]
         if self.log_extra_info:
             label.extend(self.camera.extra_info)
 
