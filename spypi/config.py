@@ -30,6 +30,7 @@ def config_schema() -> Schema:
         },
         Optional('processing'): {
             'framerate': int,
+            'use_asyncio': Or(None, bool),
             'recording_directory': Or(None, And(str, len)),
             'record_video': Or(None, bool),
             'send_video': Or(None, bool),

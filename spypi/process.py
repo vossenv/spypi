@@ -1,3 +1,4 @@
+import asyncio
 import glob
 import logging
 import os
@@ -24,7 +25,8 @@ class ImageProcessor():
         processing_config = config['processing']
         self.video_stream = None
         self.connector = None
-        self.text_scaling_set = None
+        self.text_scaling = {}
+        self.use_asyncio = processing_config['use_asyncio']
         self.record_video = processing_config['record_video']
         self.recording_directory = processing_config['recording_directory']
         self.send_images = processing_config['send_images']
@@ -43,11 +45,27 @@ class ImageProcessor():
         self.ignore_warnings = self.camera.ignore_warnings = self.config['logging']['ignore_warnings']
         self.log_extra_info = self.camera.log_extra_info = self.config['logging']['log_extra_info']
         self.camera.log_fps = self.log_fps and self.fps_enabled
+        self.stream_process = self.sync_stream_process
 
     def run(self):
 
-        if self.send_images:
+        tasks = []
+        if self.use_asyncio:
+            self.loop = asyncio.get_event_loop()
+            self.stream_process = self.asio_stream_process
+
+        if self.send_video or self.send_images:
             self.connector = Connector(self.config['connection'])
+
+        if self.send_images:
+            tasks.append(self.create_task(
+                self.stream_process,
+                next=self.camera.next_image,
+                transform=self.apply_stream_transforms,
+                handle=self.connector.send_image,
+                name="Web",
+                delay=self.web_acq_delay
+            ))
 
         if self.record_video:
             self.video_stream = VideoStream(
@@ -58,38 +76,90 @@ class ImageProcessor():
                 fps=self.framerate
             )
 
-        if self.send_images:
-            threading.Thread(target=self.stream_process, args=[
-                self.camera.next_image,
-                self.apply_stream_transforms,
-                self.connector.send_image,
-                "Web",
-                0.2
-            ]).start()
-        #
-        if self.video_stream:
-            threading.Thread(target=self.stream_process, args=[
-                self.camera.next_video_frame,
-                self.apply_video_transforms,
-                self.video_stream.add_frame,
-                "Video",
-                0.001
-            ]).start()
+            tasks.append(self.create_task(
+                self.stream_process,
+                next=self.camera.next_video_frame,
+                transform=self.apply_video_transforms,
+                handle=self.video_stream.add_frame,
+                name="Video",
+                delay=self.video_acq_delay
+            ))
 
-        if self.video_stream and self.send_video:
-            threading.Thread(target=self.send_directory_video).start()
+            if self.send_video:
+                threading.Thread(target=self.send_directory_video).start()
+
+            if self.use_asyncio:
+                self.loop.run_until_complete(asyncio.wait(tasks))
+            else:
+                [t.start() for t in tasks]
+
+    def create_task(self, process_handle, **kwargs):
+        if self.use_asyncio:
+            return self.loop.create_task(process_handle(**kwargs))
+        else:
+            return threading.Thread(target=process_handle, args=kwargs.values())
+
+    async def asio_stream_process(self, next, transform, handle, name, delay=0.0):
+        interval = 500
+        count = 0
+        counter = FPSCounter()
+        fps_queue = deque(maxlen=interval)
+        while True:
+            try:
+                if self.fps_enabled:
+                    f = counter.get_fps()
+                    fps_queue.append(f)
+
+                    if count % interval == 0 and self.log_fps:
+                        fps = round(sum(fps_queue) / interval, 2)
+                        self.logger.info("{0}: {1} frame avg fps: {2}".format(name, interval, fps))
+                        self.count = 0
+                    count += 1
+                    counter.increment()
+                    handle(transform(next(), f))
+                else:
+                    handle(transform(next()))
+            except IndexError:
+                time.sleep(0.001)
+            finally:
+                await asyncio.sleep(delay)
+
+    def sync_stream_process(self, next, transform, handle, name, delay=0.0):
+        interval = 500
+        count = 0
+        counter = FPSCounter()
+        fps_queue = deque(maxlen=interval)
+        while True:
+            try:
+                if self.fps_enabled:
+                    f = counter.get_fps()
+                    fps_queue.append(f)
+
+                    if count % interval == 0 and self.log_fps:
+                        fps = round(sum(fps_queue) / interval, 2)
+                        self.logger.info("{0}: {1} frame avg fps: {2}".format(name, interval, fps))
+                        self.count = 0
+                    count += 1
+                    counter.increment()
+                    handle(transform(next(), f))
+                else:
+                    handle(transform(next()))
+            except IndexError:
+                time.sleep(0.001)
+            finally:
+                time.sleep(delay)
 
     def apply_stream_transforms(self, image, fps=None):
         image = im.crop(image, self.crop)
         image = im.resize(image, self.image_size)
         image = im.rotate(image, self.rotation)
-        return self.apply_data_bar(image, fps)
+        return self.apply_data_bar(image, fps, 'web')
 
     def apply_video_transforms(self, image, fps=None):
         image = im.rotate(image, self.rotation)
-        return self.apply_data_bar(image, fps)
+        return self.apply_data_bar(image, fps, 'video')
 
-    def apply_data_bar(self, image, fps):
+    def apply_data_bar(self, image, fps, name):
 
         h, w, _ = image.shape
         time = datetime.now().strftime("%Y-%m-%d: %H:%M:%S:%f")[:-5]
@@ -105,16 +175,20 @@ class ImageProcessor():
 
         # Calculate the text scaling to fit width and height based on specified bar size.
         # Only run the first time since this value is fixed
-        if not self.text_scaling_set:
-            self.text_scaling_set = True
-            self.text_scale, self.text_height = im.compute_text_scale(label, bar_size, padding)
-            self.vertical_space = self.text_height * len(label) + (len(label) - 1) * padding
+        if not self.text_scaling.get(name):
+            text_scale, text_height = im.compute_text_scale(label, bar_size, padding)
+            vertical_space = text_height * len(label) + (len(label) - 1) * padding
+            self.text_scaling['name'] = [text_scale, text_height, vertical_space]
+
+        text_scale = self.text_scaling['name'][0]
+        text_height = self.text_scaling['name'][1]
+        vspace = self.text_scaling['name'][2]
 
         # Draw a box of proper height including between line padding
-        image = im.rectangle(image, [w, self.vertical_space + 2 * padding], (0, 0, 0))
+        image = im.rectangle(image, [w, vspace + 2 * padding], (0, 0, 0))
 
         # Add labels
-        image = im.add_label(image, label, self.text_height, self.text_scale, (255, 255, 255), padding)
+        image = im.add_label(image, label, text_height, text_scale, (255, 255, 255), padding)
         return image
 
     def send_directory_video(self):
@@ -127,30 +201,6 @@ class ImageProcessor():
                 if result is True:
                     os.unlink(file)
             time.sleep(10)
-
-    def stream_process(self, next, transform, handle, name, delay=0):
-        interval = 500
-        count = 0
-        counter = FPSCounter()
-        fps_queue = deque(maxlen=interval)
-        while True:
-            try:
-                time.sleep(delay)
-                if self.fps_enabled:
-                    f = counter.get_fps()
-                    fps_queue.append(f)
-
-                    if count % interval == 0 and self.log_fps:
-                        fps = round(sum(fps_queue) / interval, 2)
-                        self.logger.info("{0}: {1} frame avg fps: {2}".format(name, interval, fps))
-                        self.count = 0
-                    count += 1
-                    handle(transform(next(), f))
-                    counter.increment()
-                else:
-                    handle(transform(next()))
-            except IndexError:
-                time.sleep(0.001)
 
 
 class ImageWriter():
