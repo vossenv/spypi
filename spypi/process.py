@@ -25,7 +25,7 @@ class ImageProcessor():
         processing_config = config['processing']
         self.video_stream = None
         self.connector = None
-        self.text_scaling_set = None
+        self.text_scaling = {}
         self.use_asyncio = processing_config['use_asyncio']
         self.record_video = processing_config['record_video']
         self.recording_directory = processing_config['recording_directory']
@@ -153,13 +153,13 @@ class ImageProcessor():
         image = im.crop(image, self.crop)
         image = im.resize(image, self.image_size)
         image = im.rotate(image, self.rotation)
-        return self.apply_data_bar(image, fps)
+        return self.apply_data_bar(image, fps, 'web')
 
     def apply_video_transforms(self, image, fps=None):
         image = im.rotate(image, self.rotation)
-        return self.apply_data_bar(image, fps)
+        return self.apply_data_bar(image, fps, 'video')
 
-    def apply_data_bar(self, image, fps):
+    def apply_data_bar(self, image, fps, name):
 
         h, w, _ = image.shape
         time = datetime.now().strftime("%Y-%m-%d: %H:%M:%S:%f")[:-5]
@@ -175,16 +175,20 @@ class ImageProcessor():
 
         # Calculate the text scaling to fit width and height based on specified bar size.
         # Only run the first time since this value is fixed
-        if not self.text_scaling_set:
-            self.text_scaling_set = True
-            self.text_scale, self.text_height = im.compute_text_scale(label, bar_size, padding)
-            self.vertical_space = self.text_height * len(label) + (len(label) - 1) * padding
+        if not self.text_scaling.get(name):
+            text_scale, text_height = im.compute_text_scale(label, bar_size, padding)
+            vertical_space = text_height * len(label) + (len(label) - 1) * padding
+            self.text_scaling['name'] = [text_scale, text_height, vertical_space]
+
+        text_scale = self.text_scaling['name'][0]
+        text_height = self.text_scaling['name'][1]
+        vspace = self.text_scaling['name'][2]
 
         # Draw a box of proper height including between line padding
-        image = im.rectangle(image, [w, self.vertical_space + 2 * padding], (0, 0, 0))
+        image = im.rectangle(image, [w, vspace + 2 * padding], (0, 0, 0))
 
         # Add labels
-        image = im.add_label(image, label, self.text_height, self.text_scale, (255, 255, 255), padding)
+        image = im.add_label(image, label, text_height, text_scale, (255, 255, 255), padding)
         return image
 
     def send_directory_video(self):
