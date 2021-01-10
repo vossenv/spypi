@@ -14,6 +14,7 @@ from spypi.camera import Camera
 from spypi.error import ImageReadException, ArducamException
 from spypi.model import Connector, VideoStream, ImageManip as im
 from spypi.utils import FPSCounter
+from simple_pid import PID
 
 
 class ImageProcessor():
@@ -38,14 +39,15 @@ class ImageProcessor():
         self.framerate = processing_config['framerate']
         self.data_bar_size = processing_config['data_bar_size']
         self.text_pad = processing_config['text_pad']
-        self.fps_enabled = processing_config['global_fps_enable']
         self.web_acq_delay = processing_config['web_acq_delay']
         self.video_acq_delay = processing_config['video_acq_delay']
-        self.log_fps = self.config['logging']['log_fps']
+        self.show_fps = processing_config['show_fps']
+        self.log_metrics = self.config['logging']['log_metrics']
         self.ignore_warnings = self.camera.ignore_warnings = self.config['logging']['ignore_warnings']
         self.log_extra_info = self.camera.log_extra_info = self.config['logging']['log_extra_info']
-        self.camera.log_fps = self.log_fps and self.fps_enabled
+        self.camera.log_metrics = self.log_metrics
         self.stream_process = self.sync_stream_process
+        self.web_pid = PID(1, 0.5, 0.05, setpoint=3)
 
     def run(self):
 
@@ -78,20 +80,20 @@ class ImageProcessor():
 
             tasks.append(self.create_task(
                 self.stream_process,
-                next=self.camera.next_video_frame,
+                next=self.camera.next_image,
                 transform=self.apply_video_transforms,
                 handle=self.video_stream.add_frame,
                 name="Video",
                 delay=self.video_acq_delay
             ))
 
-            if self.send_video:
-                threading.Thread(target=self.send_directory_video).start()
+        if self.send_video:
+            threading.Thread(target=self.send_directory_video).start()
 
-            if self.use_asyncio:
-                self.loop.run_until_complete(asyncio.wait(tasks))
-            else:
-                [t.start() for t in tasks]
+        if self.use_asyncio:
+            self.loop.run_until_complete(asyncio.wait(tasks))
+        else:
+            [t.start() for t in tasks]
 
     def create_task(self, process_handle, **kwargs):
         if self.use_asyncio:
@@ -106,19 +108,22 @@ class ImageProcessor():
         fps_queue = deque(maxlen=interval)
         while True:
             try:
-                if self.fps_enabled:
+                img = next()
+                if img is None:
+                    continue
+                if self.show_fps:
                     f = counter.get_fps()
                     fps_queue.append(f)
 
-                    if count % interval == 0 and self.log_fps:
+                    if count % interval == 0 and self.log_metrics:
                         fps = round(sum(fps_queue) / interval, 2)
                         self.logger.info("{0}: {1} frame avg fps: {2}".format(name, interval, fps))
                         self.count = 0
                     count += 1
                     counter.increment()
-                    handle(transform(next(), f))
+                    handle(transform(img, f))
                 else:
-                    handle(transform(next()))
+                    handle(transform(img))
             except IndexError:
                 time.sleep(0.001)
             finally:
@@ -131,19 +136,22 @@ class ImageProcessor():
         fps_queue = deque(maxlen=interval)
         while True:
             try:
-                if self.fps_enabled:
+                img = next()
+                if img is None:
+                    continue
+                if self.show_fps or self.log_metrics:
                     f = counter.get_fps()
                     fps_queue.append(f)
 
-                    if count % interval == 0 and self.log_fps:
+                    if count % interval == 0 and self.log_metrics:
                         fps = round(sum(fps_queue) / interval, 2)
                         self.logger.info("{0}: {1} frame avg fps: {2}".format(name, interval, fps))
                         self.count = 0
                     count += 1
                     counter.increment()
-                    handle(transform(next(), f))
+                    handle(transform(img, f))
                 else:
-                    handle(transform(next()))
+                    handle(transform(img))
             except IndexError:
                 time.sleep(0.001)
             finally:
@@ -163,7 +171,7 @@ class ImageProcessor():
 
         h, w, _ = image.shape
         time = datetime.now().strftime("%Y-%m-%d: %H:%M:%S:%f")[:-5]
-        label = ["{0} @ {1:.2f} FPS".format(time, fps)] if self.fps_enabled else [time]
+        label = ["{0} @ {1:.2f} FPS".format(time, fps)] if self.show_fps else [time]
         if self.log_extra_info:
             label.extend(self.camera.extra_info)
 
@@ -178,11 +186,11 @@ class ImageProcessor():
         if not self.text_scaling.get(name):
             text_scale, text_height = im.compute_text_scale(label, bar_size, padding)
             vertical_space = text_height * len(label) + (len(label) - 1) * padding
-            self.text_scaling['name'] = [text_scale, text_height, vertical_space]
+            self.text_scaling[name] = [text_scale, text_height, vertical_space]
 
-        text_scale = self.text_scaling['name'][0]
-        text_height = self.text_scaling['name'][1]
-        vspace = self.text_scaling['name'][2]
+        text_scale = self.text_scaling[name][0]
+        text_height = self.text_scaling[name][1]
+        vspace = self.text_scaling[name][2]
 
         # Draw a box of proper height including between line padding
         image = im.rectangle(image, [w, vspace + 2 * padding], (0, 0, 0))

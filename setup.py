@@ -45,6 +45,7 @@ setup(name='spypi',
           'requests',
           'numpy==1.18',
           'imutils',
+          'simple-pid'
       ],
       extras_require={
           ':sys_platform=="win32"': [

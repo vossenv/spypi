@@ -105,9 +105,23 @@ class FPSCounter():
 
 class SimpleCounter():
 
-    def __init__(self, rollover = 500):
-        self.rollover = rollover
-        self.count = 0
+    def __init__(self, size = 500):
+        self.size = size
+        self.reset()
 
     def increment(self):
         self.count += 1
+        if self.count >= self.size:
+            self.reset()
+
+    def get_rate(self):
+        try:
+            delta = (time.perf_counter() - self.time)
+            return self.count/delta
+        except ZeroDivisionError:
+            time.sleep(0.01)
+            return self.get_rate()
+
+    def reset(self):
+        self.count = 0
+        self.time = time.perf_counter()

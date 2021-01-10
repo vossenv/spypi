@@ -17,11 +17,11 @@ def config_schema() -> Schema:
         'device': {
             'camera': Or('picam', 'arducam', 'usb'),
             'device_id': int,
-            'frame_width': int,
-            'frame_height': int,
+            'frame_size': Or(None, [int, int]),
             'init_delay': Or(float, int),
             'init_retry': Or(float, int),
             'arducam_registers': Or(None, And(str, len)),
+            'max_error_rate': Or(float, int),
         },
         Optional('connection'): {
             'name': And(str, len),
@@ -30,6 +30,7 @@ def config_schema() -> Schema:
         },
         Optional('processing'): {
             'framerate': int,
+            'show_fps': Or(None, bool),
             'use_asyncio': Or(None, bool),
             'recording_directory': Or(None, And(str, len)),
             'record_video': Or(None, bool),
@@ -44,13 +45,12 @@ def config_schema() -> Schema:
             'text_pad': int,
             'web_acq_delay': Or(float, int),
             'video_acq_delay': Or(float, int),
-            'global_fps_enable': Or(None, bool),
         },
         Optional('logging'): {
             'level': Or('info', 'debug', 'INFO', 'DEBUG'),
             'filename': Or(None, And(str, len)),
             'log_stdout': Or(None, bool),
-            'log_fps': Or(None, bool),
+            'log_metrics': Or(None, bool),
             'log_extra_info': Or(None, bool),
             'ignore_warnings': Or(None, bool),
         }

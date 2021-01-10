@@ -5,11 +5,12 @@ import time
 from collections import deque
 
 import ArducamSDK
+from picamera import PiCamera
 
 from spypi.error import CameraConfigurationException, ArducamException, ImageReadException
 from spypi.lib.ImageConvert import convert_image
 from spypi.resources import get_resource
-from spypi.utils import FPSCounter
+from spypi.utils import FPSCounter, SimpleCounter
 
 
 class Camera():
@@ -17,20 +18,21 @@ class Camera():
     def __init__(self, config):
         self.camera_type = config['camera']
         self.dev_id = config['device_id']
-        self.frame_width = config['frame_width']
-        self.frame_height = config['frame_height']
+        self.frame_size = tuple(config['frame_size'])
         self.init_delay = config['init_delay']
         self.init_retry = config['init_retry']
+        self.max_error_rate = config['max_error_rate']
         self.stream = None
         self.extra_info = []
         self.logger = logging.getLogger("camera")
         self.counter = FPSCounter()
         self.images = deque(maxlen=10)
-        self.video = deque(maxlen=10)
         self.count = 0
-        self.log_fps = False
+        self.log_metrics = False
         self.ignore_warnings = False
         self.log_extra_info = True
+        self.running = True
+        self.ecount = SimpleCounter(50)
 
     @classmethod
     def create(cls, config):
@@ -45,29 +47,40 @@ class Camera():
         raise ValueError("Unknown camera type: {}".format(cam))
 
     def read_frames(self):
-        while True:
+        while True and self.running:
             try:
                 image = self.read_next_frame()
                 if image is not None:
-
                     # add images to respective deques for processing ASYNC
                     self.images.append(image)
-                    self.video.append(image)
 
                     # No need to fetch every single frame - it causes data errors
-                    if self.log_extra_info and self.count % 300 == 0:
+                    if self.log_extra_info and self.count % 100 == 0:
                         self.extra_info = self.get_extra_label_info()
 
                     # Just for metrics
-                    if self.count % 500 == 0 and self.log_fps:
-                        self.logger.debug("Capture rate: {} FPS".format(self.counter.get_fps()))
-                        self.count = 0
+                    # if self.log_metrics and self.count % 500 == 0:
+                    #     self.logger.debug("Capture rate: {} FPS".format(self.counter.get_fps()))
+                    #     self.count = 0
                     self.count += 1
 
             except (ImageReadException, ArducamException) as e:
-                self.logger.warning(e)
+                self.ecount.increment()
+                r = self.ecount.get_rate()
+                if self.log_metrics:
+                    self.logger.debug("Error rate: {}".format(round(r, 2)))
+                if self.max_error_rate < r:
+                    break
+                if not self.ignore_warnings and isinstance(e, ArducamException) and e.code == 65316:
+                    pass
+                else:
+                    self.logger.warning(e)
             except Exception as e:
                 self.logger.error("Unknown error encountered: {}".format(e))
+                return
+
+        self.logger.info("Resetting due to errors")
+        self.reset()
 
     def connect(self):
         pass
@@ -75,11 +88,12 @@ class Camera():
     def start(self):
         pass
 
-    def next_image(self):
-        return self.images.pop()
+    def reset(self):
+        pass
 
-    def next_video_frame(self):
-        return self.images.pop()
+    def next_image(self):
+        if len(self.images) > 3:
+            return self.images[0].copy()
 
     def read_next_frame(self):
         pass
@@ -98,9 +112,18 @@ class ImUPiCam(Camera):
         self.stream = VideoStream(
             src=self.dev_id,
             usePiCamera=True,
-            resolution=(self.frame_width, self.frame_height),
+            resolution=self.frame_size,
             framerate=5
         )
+
+
+class PiCam(Camera):
+
+    def __init__(self, config):
+        super(PiCam, self).__init__(config)
+
+    def connect(self):
+        self.picam = PiCamera(resolution=self.frame_size)
 
 
 class UsbCam(Camera):
@@ -116,7 +139,7 @@ class UsbCam(Camera):
 class ArduCam(Camera):
 
     def __init__(self, config):
-        super().__init__(config)
+        super(ArduCam, self).__init__(config)
 
         self.register_config_path = config['arducam_registers'] or get_resource('default_registers.json')
         self.usb_version = None
@@ -142,16 +165,31 @@ class ArduCam(Camera):
         with open(self.register_config_path, 'r') as f:
             self.register_config = json.load(f)
 
-        self.configure()
+        self.start(full=True)
+        self.logger.debug("Thread started")
+        self.extra_info = self.get_extra_label_info()
 
+    def start(self, full=False):
+        self.handle = {}
+        if full:
+            self.configure()
+        else:
+            self.connect_cam()
+        self.running = True
         self.logger.info("Start arducam capture thread")
         start_code = ArducamSDK.Py_ArduCam_beginCaptureImage(self.handle)
         if start_code != 0:
             raise ArducamException("Error starting capture thread", code=start_code)
-        self.logger.debug("Thread started")
-
         threading.Thread(target=self.read_frames).start()
-        self.extra_info = self.get_extra_label_info()
+
+    def reset(self, callback=None):
+        self.running = False
+        ArducamSDK.Py_ArduCam_del(self.handle)
+        ArducamSDK.Py_ArduCam_flush(self.handle)
+        ArducamSDK.Py_ArduCam_endCaptureImage(self.handle)
+        ArducamSDK.Py_ArduCam_close(self.handle)
+        self.images.clear()
+        self.start(full=True)
 
     def start_capture(self):
         self.logger.info("Start arducam capture thread")
@@ -162,20 +200,13 @@ class ArduCam(Camera):
 
     def connect_cam(self):
         self.logger.info("Beginning banana scan... ")
-        ArducamSDK.Py_ArduCam_scan()
-        code = -1
-        for i in range(self.init_retry):
-            self.logger.info("Attempt: {}".format(i))
-            code, self.handle, rtn_cfg = ArducamSDK.Py_ArduCam_open(self.cam_config, self.dev_id)
-            if code == 0:
-                self.usb_version = rtn_cfg['usbType']
-                self.logger.info("Camera connected!")
-                return
-            time.sleep(self.init_delay)
-        raise ArducamException("Failed to connect to camera", code=code)
+        code, self.handle, rtn_cfg = ArducamSDK.Py_ArduCam_autoopen(self.cam_config)
+        if code != 0:
+            raise ArducamException("Failed to connect to camera", code=code)
+        self.usb_version = rtn_cfg['usbType']
+        self.logger.info("Camera connected!")
 
     def configure(self):
-
         camera_parameter = self.register_config["camera_parameter"]
         self.width = int(camera_parameter["SIZE"][0])
         self.height = int(camera_parameter["SIZE"][1])
@@ -253,22 +284,19 @@ class ArduCam(Camera):
     def read_next_frame(self):
         code = ArducamSDK.Py_ArduCam_captureImage(self.handle)
         if code > 255:
-            if code == 65316 and self.ignore_warnings:
-                pass
-            else:
-                raise ArducamException("Error capturing image", code=code)
+            raise ArducamException("Error capturing image", code=code)
         if ArducamSDK.Py_ArduCam_availableImage(self.handle):
             try:
                 rtn_val, data, rtn_cfg = ArducamSDK.Py_ArduCam_readImage(self.handle)
-                if rtn_cfg['u32Size'] == 0 or rtn_val != 0:
+                if rtn_val != 0 or rtn_cfg['u32Size'] == 0:
                     raise ArducamException("Bad image read! Datasize was {}".format(rtn_cfg['u32Size']), code=rtn_val)
                 self.counter.increment()
                 return convert_image(data, rtn_cfg, self.color_mode)
             finally:
                 ArducamSDK.Py_ArduCam_del(self.handle)
+                #ArducamSDK.Py_ArduCam_flush(self.handle)
 
     def get_extra_label_info(self):
-
         if self.data_fields['LUM2'] == 0:
             self.data_fields['LUM2'] = ArducamSDK.Py_ArduCam_readSensorReg(self.handle, int(12546))[1]
         if self.field_index == 0 or self.data_fields['TIME'] == 0:
