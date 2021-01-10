@@ -6,6 +6,7 @@ from collections import deque
 
 import ArducamSDK
 
+from spypi import error
 from spypi.lib.ImageConvert import convert_image
 from spypi.error import CameraConfigurationException, ArducamException, ImageReadException
 from spypi.resources import get_resource
@@ -29,6 +30,8 @@ class Camera():
         self.video = deque(maxlen=10)
         self.count = 0
         self.log_fps = False
+        self.ignore_warnings = False
+        self.log_extra_info = True
 
     @classmethod
     def create(cls, config):
@@ -53,14 +56,14 @@ class Camera():
                     self.video.append(image)
 
                     # No need to fetch every single frame - it causes data errors
-                    if self.count % 50 == 0:
+                    if self.log_extra_info and self.count % 300 == 0:
                         self.extra_info = self.get_extra_label_info()
-
+                    #
                     # Just for metrics
-                    if self.count % 500 == 0 and self.log_fps:
-                        self.logger.debug("Capture rate: {} FPS".format(self.counter.get_fps()))
-                        self.count = 0
-                    self.count += 1
+                    # if self.count % 500 == 0 and self.log_fps:
+                    #     self.logger.debug("Capture rate: {} FPS".format(self.counter.get_fps()))
+                    #     self.count = 0
+                    # self.count += 1
 
             except (ImageReadException, ArducamException) as e:
                 self.logger.warning(e)
@@ -114,7 +117,8 @@ class UsbCam(Camera):
 class ArduCam(Camera):
 
     def __init__(self, config):
-        super(ArduCam, self).__init__(config)
+        super().__init__(config)
+
 
         self.register_config_path = config['arducam_registers'] or get_resource('default_registers.json')
         self.usb_version = None
@@ -252,7 +256,10 @@ class ArduCam(Camera):
     def read_next_frame(self):
         code = ArducamSDK.Py_ArduCam_captureImage(self.handle)
         if code > 255:
-            raise ArducamException("Error capturing image", code=code)
+            if code == 65316 and self.ignore_warnings:
+                pass
+            else:
+                raise ArducamException("Error capturing image", code=code)
         if ArducamSDK.Py_ArduCam_availableImage(self.handle):
             try:
                 rtn_val, data, rtn_cfg = ArducamSDK.Py_ArduCam_readImage(self.handle)

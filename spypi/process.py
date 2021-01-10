@@ -37,7 +37,11 @@ class ImageProcessor():
         self.data_bar_size = processing_config['data_bar_size']
         self.text_pad = processing_config['text_pad']
         self.fps_enabled = processing_config['global_fps_enable']
+        self.web_acq_delay = processing_config['web_acq_delay']
+        self.video_acq_delay = processing_config['video_acq_delay']
         self.log_fps = self.config['logging']['log_fps']
+        self.ignore_warnings = self.camera.ignore_warnings = self.config['logging']['ignore_warnings']
+        self.log_extra_info = self.camera.log_extra_info = self.config['logging']['log_extra_info']
         self.camera.log_fps = self.log_fps and self.fps_enabled
 
     def run(self):
@@ -50,6 +54,7 @@ class ImageProcessor():
                 filename_prefix=self.config['connection']['name'],
                 directory=self.recording_directory,
                 max_file_size=self.video_filesize,
+                resolution=self.config['processing']['xvid_size'],
                 fps=self.framerate
             )
 
@@ -58,15 +63,17 @@ class ImageProcessor():
                 self.camera.next_image,
                 self.apply_stream_transforms,
                 self.connector.send_image,
-                "Web"
+                "Web",
+                0.2
             ]).start()
-
+        #
         if self.video_stream:
             threading.Thread(target=self.stream_process, args=[
                 self.camera.next_video_frame,
                 self.apply_video_transforms,
                 self.video_stream.add_frame,
-                "Video"
+                "Video",
+                0.001
             ]).start()
 
         if self.video_stream and self.send_video:
@@ -87,7 +94,8 @@ class ImageProcessor():
         h, w, _ = image.shape
         time = datetime.now().strftime("%Y-%m-%d: %H:%M:%S:%f")[:-5]
         label = ["{0} @ {1:.2f} FPS".format(time, fps)] if self.fps_enabled else [time]
-        label.extend(self.camera.extra_info)
+        if self.log_extra_info:
+            label.extend(self.camera.extra_info)
 
         # Size of black rectangle (by % from CFG)
         bar_size = round(self.data_bar_size * 0.01 * w) if w > 300 else 100
@@ -120,13 +128,14 @@ class ImageProcessor():
                     os.unlink(file)
             time.sleep(10)
 
-    def stream_process(self, next, transform, handle, name):
-        interval = 50
+    def stream_process(self, next, transform, handle, name, delay=0):
+        interval = 500
         count = 0
         counter = FPSCounter()
         fps_queue = deque(maxlen=interval)
         while True:
             try:
+                time.sleep(delay)
                 if self.fps_enabled:
                     f = counter.get_fps()
                     fps_queue.append(f)

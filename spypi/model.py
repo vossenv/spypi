@@ -21,8 +21,6 @@ class ImageManip():
 
         longest = max(text, key=len)
 
-        print(longest)
-
         ((w1, _), _) = cv2.getTextSize(longest, face, 1, 1)
         ((w5, _), _) = cv2.getTextSize(longest, face, 5, 1)
 
@@ -81,7 +79,7 @@ class ImageManip():
 
 class VideoStream():
 
-    def __init__(self, filename_prefix=None, directory=None, max_file_size=0, fps=20):
+    def __init__(self, filename_prefix=None, directory=None, max_file_size=0, resolution=None, fps=20):
         self.filename_prefix = filename_prefix
         self.directory = directory or os.getcwd()
         self.frames = []
@@ -89,6 +87,7 @@ class VideoStream():
         self.disk_size = 0
         self.max_file_size = max_file_size
         self.file_count = 0
+        self.resolution = tuple(resolution or [1280, 964])
         self.logger = logging.getLogger("video")
         self.fps = fps
         self.writer = self.get_writer()
@@ -101,7 +100,7 @@ class VideoStream():
 
     def get_writer(self):
         self.filename = self.get_filename()
-        return cv2.VideoWriter(self.filename, cv2.VideoWriter_fourcc('X', 'V', 'I', 'D'), self.fps, (1280, 964))
+        return cv2.VideoWriter(self.filename, cv2.VideoWriter_fourcc('X', 'V', 'I', 'D'), self.fps, self.resolution)
 
     def add_frame(self, frame):
         self.writer.write(frame)

@@ -39,7 +39,10 @@ def config_schema() -> Schema:
             'rotation': Or(float, int),
             'data_bar_size': int,
             'image_size': Or(None, [int, int]),
+            'xvid_size': Or(None, [int, int]),
             'text_pad': int,
+            'web_acq_delay': Or(float, int),
+            'video_acq_delay': Or(float, int),
             'global_fps_enable': Or(None, bool),
         },
         Optional('logging'): {
@@ -47,6 +50,8 @@ def config_schema() -> Schema:
             'filename': Or(None, And(str, len)),
             'log_stdout': Or(None, bool),
             'log_fps': Or(None, bool),
+            'log_extra_info': Or(None, bool),
+            'ignore_warnings': Or(None, bool),
         }
     })
 
