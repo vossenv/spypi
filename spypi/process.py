@@ -85,13 +85,13 @@ class ImageProcessor():
                 delay=self.video_acq_delay
             ))
 
-            if self.send_video:
-                threading.Thread(target=self.send_directory_video).start()
+        if self.send_video:
+            threading.Thread(target=self.send_directory_video).start()
 
-            if self.use_asyncio:
-                self.loop.run_until_complete(asyncio.wait(tasks))
-            else:
-                [t.start() for t in tasks]
+        if self.use_asyncio:
+            self.loop.run_until_complete(asyncio.wait(tasks))
+        else:
+            [t.start() for t in tasks]
 
     def create_task(self, process_handle, **kwargs):
         if self.use_asyncio:
@@ -184,11 +184,11 @@ class ImageProcessor():
         if not self.text_scaling.get(name):
             text_scale, text_height = im.compute_text_scale(label, bar_size, padding)
             vertical_space = text_height * len(label) + (len(label) - 1) * padding
-            self.text_scaling['name'] = [text_scale, text_height, vertical_space]
+            self.text_scaling[name] = [text_scale, text_height, vertical_space]
 
-        text_scale = self.text_scaling['name'][0]
-        text_height = self.text_scaling['name'][1]
-        vspace = self.text_scaling['name'][2]
+        text_scale = self.text_scaling[name][0]
+        text_height = self.text_scaling[name][1]
+        vspace = self.text_scaling[name][2]
 
         # Draw a box of proper height including between line padding
         image = im.rectangle(image, [w, vspace + 2 * padding], (0, 0, 0))

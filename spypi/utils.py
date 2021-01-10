@@ -112,15 +112,15 @@ class SimpleCounter():
     def increment(self):
         self.count += 1
         if self.count >= self.size:
-            self.count = 0
-            self.time = time.perf_counter()
+            self.reset()
 
     def get_rate(self):
         try:
             delta = (time.perf_counter() - self.time)
             return self.count/delta
-        except Exception:
-            return 0
+        except ZeroDivisionError:
+            time.sleep(0.01)
+            return self.get_rate()
 
     def reset(self):
         self.count = 0

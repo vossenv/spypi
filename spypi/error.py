@@ -46,6 +46,7 @@ class ArducamException(BaseException):
 
     def __init__(self, message, code=None):
         BaseException.__init__(self)
+        self.code = code
         self.root_cause = get_arducam_error_name(code) or "unknown"
         self.message = "{0}.  Root error is code {1}: '{2}'".format(message, code, self.root_cause)
         self.args = (self.message, code)
