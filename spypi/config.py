@@ -36,7 +36,6 @@ def config_schema() -> Schema:
             'web_fr_pid': Or(None, [Or(int, float), Or(int, float),
                                       Or(int, float), Or(int, float), Or(int, float),  Or(int, float)]),
             'show_fps': Or(None, bool),
-            'use_asyncio': Or(None, bool),
             'recording_directory': Or(None, And(str, len)),
             'record_video': Or(None, bool),
             'send_video': Or(None, bool),

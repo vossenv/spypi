@@ -1,3 +1,4 @@
+import asyncio
 import glob
 import logging
 import os
@@ -26,7 +27,6 @@ class ImageProcessor():
         self.video_stream = None
         self.connector = None
         self.text_scaling = {}
-        self.use_asyncio = processing_config['use_asyncio']
         self.record_video = processing_config['record_video']
         self.recording_directory = processing_config['recording_directory']
         self.send_images = processing_config['send_images']
@@ -46,14 +46,10 @@ class ImageProcessor():
         self.ignore_warnings = self.camera.ignore_warnings = self.config['logging']['ignore_warnings']
         self.log_extra_info = self.camera.log_extra_info = self.config['logging']['log_extra_info']
         self.camera.log_metrics = self.log_metrics
-        self.stream_process = self.sync_stream_process
 
     def run(self):
 
         tasks = []
-        # if self.use_asyncio:
-        #     self.loop = asyncio.get_event_loop()
-        #     self.stream_process = self.asio_stream_process
 
         if self.send_video or self.send_images:
             self.connector = Connector(self.config['connection'])
@@ -65,7 +61,7 @@ class ImageProcessor():
                 transform=self.apply_stream_transforms,
                 handle=self.connector.send_image,
                 name="Web",
-                control=self.get_pid(self.web_pid, self.target_web_framerate)
+                controller=self.get_pid(self.web_pid, self.target_web_framerate)
             ))
 
         if self.record_video:
@@ -83,7 +79,7 @@ class ImageProcessor():
                 transform=self.apply_video_transforms,
                 handle=self.video_stream.add_frame,
                 name="Video",
-                control=self.get_pid(self.vid_pid, self.target_video_framerate)
+                controller=self.get_pid(self.vid_pid, self.target_video_framerate)
             ))
 
         if self.send_video:
@@ -92,10 +88,7 @@ class ImageProcessor():
         [t.start() for t in tasks]
 
     def create_task(self, process_handle, **kwargs):
-        if self.use_asyncio:
-            return self.loop.create_task(process_handle(**kwargs))
-        else:
-            return threading.Thread(target=process_handle, args=kwargs.values())
+        return threading.Thread(target=process_handle, args=kwargs.values())
 
     def get_pid(self, params, target):
         pid = PID(params[0], params[1], params[2], setpoint=target)
@@ -103,7 +96,7 @@ class ImageProcessor():
         pid.interval = params[-1]
         return pid
 
-    def sync_stream_process(self, next, transform, handle, name, controller):
+    def stream_process(self, next, transform, handle, name, controller, sleepf=time.sleep):
         delay = 0
         interval = controller.interval
         sc = SimpleCounter(10)
@@ -119,7 +112,6 @@ class ImageProcessor():
                 if sc.increment():
                     fps = round(sum(fps_queue) / interval, 2)
                     delay = controller(fps)
-                    self.count = 0
                     if self.log_metrics:
                         self.logger.info("{0}: {1} frame avg fps: {2} delay: {3}".format(name, interval, fps, delay))
                 fc.increment()
@@ -127,7 +119,7 @@ class ImageProcessor():
             except IndexError:
                 time.sleep(0.001)
             finally:
-                time.sleep(delay)
+                sleepf(delay)
 
     def apply_stream_transforms(self, image, fps=None):
         image = im.crop(image, self.crop)

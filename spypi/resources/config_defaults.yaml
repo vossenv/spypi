@@ -19,7 +19,6 @@ logging:
   log_extra_info: true
 processing:
   show_fps: true
-  use_asyncio: false
   target_video_framerate: 6
   target_web_framerate: 3
   video_fr_pid: [ -1, 0.3, 0.05, 0, 0.2, 10 ]
