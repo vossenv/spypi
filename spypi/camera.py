@@ -1,6 +1,5 @@
 import json
 import logging
-import threading
 import time
 from collections import deque
 
@@ -10,7 +9,7 @@ from picamera import PiCamera
 from spypi.error import CameraConfigurationException, ArducamException, ImageReadException
 from spypi.lib.ImageConvert import convert_image
 from spypi.resources import get_resource
-from spypi.utils import FPSCounter, SimpleCounter
+from spypi.utils import FPSCounter, SimpleCounter, create_task
 
 
 class Camera():
@@ -180,7 +179,7 @@ class ArduCam(Camera):
         start_code = ArducamSDK.Py_ArduCam_beginCaptureImage(self.handle)
         if start_code != 0:
             raise ArducamException("Error starting capture thread", code=start_code)
-        threading.Thread(target=self.read_frames).start()
+        create_task(self.read_frames).start()
 
     def reset(self, callback=None):
         self.running = False

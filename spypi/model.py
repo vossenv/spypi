@@ -7,6 +7,8 @@ from os.path import join
 import cv2
 import requests
 
+from spypi.utils import SimpleCounter
+
 
 class ImageManip():
 
@@ -90,9 +92,9 @@ class VideoStream():
         self.resolution = tuple(resolution or [1280, 964])
         self.logger = logging.getLogger("video")
         self.fps = fps
-        self.writer = self.get_writer()
-        self.output_counter = 0
+        self.output_counter = SimpleCounter(20)
         os.makedirs(self.directory, exist_ok=True)
+        self.writer = self.get_writer()
 
     def get_filename(self):
         return join(self.directory, "LOCKED-{0}-{1}.avi".format(
@@ -104,14 +106,12 @@ class VideoStream():
 
     def add_frame(self, frame):
         self.writer.write(frame)
-        if self.output_counter % 20 == 0:
-            self.output_counter = 0
+        if self.output_counter.increment():
             self.disk_size = round(os.stat(self.filename).st_size * 1e-6, 2)
             if round(self.disk_size) >= self.max_file_size:
                 self.start_new_file()
                 self.logger.debug(
                     "Max size exceeded ({0}). Start new file: {1}".format(self.disk_size, self.filename))
-        self.output_counter += 1
 
     def start_new_file(self):
         self.writer.release()

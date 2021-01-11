@@ -2,6 +2,7 @@ import logging.config
 import platform
 import socket
 import sys
+import threading
 import time
 
 import distro
@@ -126,3 +127,7 @@ class SimpleCounter():
     def reset(self):
         self.count = 0
         self.time = time.perf_counter()
+
+
+def create_task(process_handle, **kwargs):
+    return threading.Thread(target=process_handle, args=kwargs.values())

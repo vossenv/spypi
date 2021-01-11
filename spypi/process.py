@@ -1,4 +1,3 @@
-import asyncio
 import glob
 import logging
 import os
@@ -14,7 +13,7 @@ from simple_pid import PID
 from spypi.camera import Camera
 from spypi.error import ImageReadException, ArducamException
 from spypi.model import Connector, VideoStream, ImageManip as im
-from spypi.utils import FPSCounter, SimpleCounter
+from spypi.utils import FPSCounter, SimpleCounter, create_task
 
 
 class ImageProcessor():
@@ -55,7 +54,7 @@ class ImageProcessor():
             self.connector = Connector(self.config['connection'])
 
         if self.send_images:
-            tasks.append(self.create_task(
+            tasks.append(create_task(
                 self.stream_process,
                 next=self.camera.next_image,
                 transform=self.apply_stream_transforms,
@@ -73,7 +72,7 @@ class ImageProcessor():
                 fps=self.target_video_framerate
             )
 
-            tasks.append(self.create_task(
+            tasks.append(create_task(
                 self.stream_process,
                 next=self.camera.next_image,
                 transform=self.apply_video_transforms,
@@ -83,12 +82,9 @@ class ImageProcessor():
             ))
 
         if self.send_video:
-            threading.Thread(target=self.send_directory_video).start()
+            tasks.append(create_task(self.send_directory_video))
 
         [t.start() for t in tasks]
-
-    def create_task(self, process_handle, **kwargs):
-        return threading.Thread(target=process_handle, args=kwargs.values())
 
     def get_pid(self, params, target):
         pid = PID(params[0], params[1], params[2], setpoint=target)
