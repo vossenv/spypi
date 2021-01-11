@@ -1,3 +1,4 @@
+import faulthandler
 import importlib
 import logging.config
 import os
@@ -5,6 +6,7 @@ import shutil
 import sys
 from os.path import join
 
+faulthandler.enable(file=sys.stderr, all_threads=True)
 import click
 from click_default_group import DefaultGroup
 
@@ -19,14 +21,13 @@ if not is_windows():
     try:
         importlib.import_module('cv2')
         importlib.import_module('ArducamSDK')
-        #importlib.import_module('picamera')
+        importlib.import_module('picamera')
     except ImportError as e:
         click.echo("Unable to import {} - have you run the install script?".format(e))
         click.echo("Find it here: https://github.com/vossenv/spypi")
         exit()
 else:
     sys.path.insert(0, os.path.abspath('./lib'))
-
 
 from spypi.process import ImageProcessor, ImagePlayer, ImageWriter
 
@@ -77,6 +78,7 @@ def view(ctx, config_filename):
     cfg = init_config(ctx.params, config_filename)
     ImagePlayer(cfg).run()
 
+
 @cli.command(help="Write some test images")
 @click.pass_context
 @click.option('-c', '--config-filename', default='config.yaml', type=str)
@@ -84,6 +86,7 @@ def view(ctx, config_filename):
 def single_image(ctx, config_filename, number):
     cfg = init_config(ctx.params, config_filename)
     ImageWriter(cfg).write_images(number)
+
 
 @cli.command(help="Display the feed (requires display)")
 @click.pass_context

@@ -4,6 +4,7 @@ import time
 from collections import deque
 
 import ArducamSDK
+import numpy as np
 from picamera import PiCamera
 
 from spypi.error import CameraConfigurationException, ArducamException, ImageReadException
@@ -39,7 +40,7 @@ class Camera():
         if cam == 'arducam':
             return ArduCam(config)
         elif cam == 'picam':
-            return ImUPiCam(config)
+            return PiCam(config)
         elif cam == 'usb':
             return UsbCam(config)
 
@@ -121,8 +122,24 @@ class PiCam(Camera):
     def __init__(self, config):
         super(PiCam, self).__init__(config)
 
+        self.connect()
+        create_task(self.read_frames).start()
+        print()
+
+    def read_next_frame(self):
+        output = np.empty((self.frame_size[1], self.frame_size[0], 3), dtype=np.uint8)
+        self.picam.capture(output, 'rgb')
+        return output
+        # filename = os.path.abspath("frame.jpg")
+        # cv2.imwrite(filename, output)
+        # output = output.reshape((112, 128, 3))
+        # output = output[:100, :100, :]
+        # output = np.empty((1300, 1000, 3), dtype=np.uint8)
+        # x = self.picam.capture(output, format='rgb')
+
     def connect(self):
-        self.picam = PiCamera(resolution=self.frame_size)
+        self.picam = PiCamera(resolution=self.frame_size, framerate=24)
+        time.sleep(2)
 
 
 class UsbCam(Camera):
@@ -188,7 +205,7 @@ class ArduCam(Camera):
         ArducamSDK.Py_ArduCam_endCaptureImage(self.handle)
         ArducamSDK.Py_ArduCam_close(self.handle)
         self.images.clear()
-        self.start(full=True)
+        self.start()
 
     def start_capture(self):
         self.logger.info("Start arducam capture thread")

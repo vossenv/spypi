@@ -1,7 +1,6 @@
 import glob
 import logging
 import os
-import threading
 import time
 from collections import deque
 from datetime import datetime
