@@ -71,7 +71,7 @@ class Camera():
                     self.logger.debug("Error rate: {}".format(round(r, 2)))
                 if self.max_error_rate < r:
                     break
-                if not self.ignore_warnings and isinstance(e, ArducamException) and e.code == 65316:
+                if self.ignore_warnings and isinstance(e, ArducamException) and e.code == 65316:
                     pass
                 else:
                     self.logger.warning(e)
