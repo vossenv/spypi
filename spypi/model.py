@@ -5,6 +5,7 @@ from datetime import datetime
 from os.path import join
 
 import cv2
+import imutils
 import requests
 
 from spypi.utils import SimpleCounter
@@ -42,11 +43,13 @@ class ImageManip():
         return image
 
     @staticmethod
-    def rotate(image, angle):
+    def rotate(image, angle, resize=True):
         if angle == 0:
             return image
-        return cv2.rotate(image, cv2.ROTATE_180)
-        # return imutils.rotate_bound(image, angle)
+        if not resize or angle % 180 == 0:
+            return imutils.rotate_bound(image, angle)
+        h, w, _ = image.shape
+        return ImageManip.resize(imutils.rotate_bound(image, angle), [w, h])
 
     @staticmethod
     def resize(image, dims):

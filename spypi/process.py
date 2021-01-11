@@ -119,8 +119,9 @@ class ImageProcessor():
 
     def apply_stream_transforms(self, image, fps=None):
         image = im.crop(image, self.crop)
-        image = im.resize(image, self.image_size)
-        image = im.rotate(image, self.rotation)
+        if self.image_size:
+            image = im.resize(image, self.image_size)
+        image = im.rotate(image, self.rotation, resize=False)
         return self.apply_data_bar(image, fps, 'web')
 
     def apply_video_transforms(self, image, fps=None):
