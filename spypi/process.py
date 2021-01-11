@@ -1,4 +1,3 @@
-import asyncio
 import glob
 import logging
 import os
@@ -9,12 +8,12 @@ from datetime import datetime
 from os.path import join
 
 import cv2
+from simple_pid import PID
 
 from spypi.camera import Camera
 from spypi.error import ImageReadException, ArducamException
 from spypi.model import Connector, VideoStream, ImageManip as im
-from spypi.utils import FPSCounter
-from simple_pid import PID
+from spypi.utils import FPSCounter, SimpleCounter
 
 
 class ImageProcessor():
@@ -36,25 +35,25 @@ class ImageProcessor():
         self.crop = processing_config['crop']
         self.rotation = processing_config['rotation']
         self.image_size = processing_config['image_size']
-        self.framerate = processing_config['framerate']
         self.data_bar_size = processing_config['data_bar_size']
         self.text_pad = processing_config['text_pad']
-        self.web_acq_delay = processing_config['web_acq_delay']
-        self.video_acq_delay = processing_config['video_acq_delay']
+        self.target_web_framerate = processing_config['target_web_framerate']
+        self.target_video_framerate = processing_config['target_video_framerate']
         self.show_fps = processing_config['show_fps']
+        self.vid_pid = processing_config['video_fr_pid']
+        self.web_pid = processing_config['web_fr_pid']
         self.log_metrics = self.config['logging']['log_metrics']
         self.ignore_warnings = self.camera.ignore_warnings = self.config['logging']['ignore_warnings']
         self.log_extra_info = self.camera.log_extra_info = self.config['logging']['log_extra_info']
         self.camera.log_metrics = self.log_metrics
         self.stream_process = self.sync_stream_process
-        self.web_pid = PID(1, 0.5, 0.05, setpoint=3)
 
     def run(self):
 
         tasks = []
-        if self.use_asyncio:
-            self.loop = asyncio.get_event_loop()
-            self.stream_process = self.asio_stream_process
+        # if self.use_asyncio:
+        #     self.loop = asyncio.get_event_loop()
+        #     self.stream_process = self.asio_stream_process
 
         if self.send_video or self.send_images:
             self.connector = Connector(self.config['connection'])
@@ -66,7 +65,7 @@ class ImageProcessor():
                 transform=self.apply_stream_transforms,
                 handle=self.connector.send_image,
                 name="Web",
-                delay=self.web_acq_delay
+                control=self.get_pid(self.web_pid, self.target_web_framerate)
             ))
 
         if self.record_video:
@@ -75,7 +74,7 @@ class ImageProcessor():
                 directory=self.recording_directory,
                 max_file_size=self.video_filesize,
                 resolution=self.config['processing']['xvid_size'],
-                fps=self.framerate
+                fps=self.target_video_framerate
             )
 
             tasks.append(self.create_task(
@@ -84,16 +83,13 @@ class ImageProcessor():
                 transform=self.apply_video_transforms,
                 handle=self.video_stream.add_frame,
                 name="Video",
-                delay=self.video_acq_delay
+                control=self.get_pid(self.vid_pid, self.target_video_framerate)
             ))
 
         if self.send_video:
             threading.Thread(target=self.send_directory_video).start()
 
-        if self.use_asyncio:
-            self.loop.run_until_complete(asyncio.wait(tasks))
-        else:
-            [t.start() for t in tasks]
+        [t.start() for t in tasks]
 
     def create_task(self, process_handle, **kwargs):
         if self.use_asyncio:
@@ -101,57 +97,33 @@ class ImageProcessor():
         else:
             return threading.Thread(target=process_handle, args=kwargs.values())
 
-    async def asio_stream_process(self, next, transform, handle, name, delay=0.0):
-        interval = 500
-        count = 0
-        counter = FPSCounter()
+    def get_pid(self, params, target):
+        pid = PID(params[0], params[1], params[2], setpoint=target)
+        pid.output_limits = (params[3], params[4])
+        pid.interval = params[-1]
+        return pid
+
+    def sync_stream_process(self, next, transform, handle, name, controller):
+        delay = 0
+        interval = controller.interval
+        sc = SimpleCounter(10)
+        fc = FPSCounter()
         fps_queue = deque(maxlen=interval)
         while True:
             try:
                 img = next()
                 if img is None:
                     continue
-                if self.show_fps:
-                    f = counter.get_fps()
-                    fps_queue.append(f)
-
-                    if count % interval == 0 and self.log_metrics:
-                        fps = round(sum(fps_queue) / interval, 2)
-                        self.logger.info("{0}: {1} frame avg fps: {2}".format(name, interval, fps))
-                        self.count = 0
-                    count += 1
-                    counter.increment()
-                    handle(transform(img, f))
-                else:
-                    handle(transform(img))
-            except IndexError:
-                time.sleep(0.001)
-            finally:
-                await asyncio.sleep(delay)
-
-    def sync_stream_process(self, next, transform, handle, name, delay=0.0):
-        interval = 500
-        count = 0
-        counter = FPSCounter()
-        fps_queue = deque(maxlen=interval)
-        while True:
-            try:
-                img = next()
-                if img is None:
-                    continue
-                if self.show_fps or self.log_metrics:
-                    f = counter.get_fps()
-                    fps_queue.append(f)
-
-                    if count % interval == 0 and self.log_metrics:
-                        fps = round(sum(fps_queue) / interval, 2)
-                        self.logger.info("{0}: {1} frame avg fps: {2}".format(name, interval, fps))
-                        self.count = 0
-                    count += 1
-                    counter.increment()
-                    handle(transform(img, f))
-                else:
-                    handle(transform(img))
+                f = fc.get_fps()
+                fps_queue.append(f)
+                if sc.increment():
+                    fps = round(sum(fps_queue) / interval, 2)
+                    delay = controller(fps)
+                    self.count = 0
+                    if self.log_metrics:
+                        self.logger.info("{0}: {1} frame avg fps: {2} delay: {3}".format(name, interval, fps, delay))
+                fc.increment()
+                handle(transform(img, f))
             except IndexError:
                 time.sleep(0.001)
             finally:

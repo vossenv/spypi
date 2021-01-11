@@ -2,35 +2,36 @@ device:
   arducam_registers:    # leave blank for defaults - AR0134_960p_Color.json
   camera: arducam
   device_id: 0
+  frame_size: [ 1300, 1000 ]
   init_delay: 1
   init_retry: 10
-  frame_size: [ 1300, 1000 ]
-  max_error_rate: 70
+  max_error_rate: 5
 connection:
   host: http://192.168.50.139:9001
-  name: default
+  name: default55
   timeout: 10
 logging:
   filename: cam.log
-  level: info
+  level: debug
   log_stdout: false               # Enables logging of sys.out and sys.err
-  log_metrics: false
+  log_metrics: true
+  ignore_warnings: true           # Data len etc
   log_extra_info: true
-  ignore_warnings: false           # Data len etc
 processing:
   show_fps: true
   use_asyncio: false
-  framerate: 20
+  target_video_framerate: 6
+  target_web_framerate: 3
+  video_fr_pid: [ -1, 0.3, 0.05, 0, 0.2, 10 ]
+  web_fr_pid: [ -1, 0.3, 0.05, 0, 0.2, 10 ]
   record_video: true
   recording_directory: video
   send_images: true
   send_video: true
   video_filesize: 25.0                 # megabytes
-  crop: [ 0, 0, 0, 0 ]     # top, left, bottom, right
+  crop: [ 0, 0, 0, 0 ]     # top, left, bottom, right (%)
   rotation: 0
-  image_size:  # width, height (for posted images).  leave lank or comment for no resize
+  image_size: [ 900, 900 ]    # width, height (for posted images)
   data_bar_size: 75     # %
   text_pad: 10
-  web_acq_delay: 0.1
-  video_acq_delay: 0.001
   xvid_size: [ 1280, 964 ]

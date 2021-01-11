@@ -105,7 +105,7 @@ class FPSCounter():
 
 class SimpleCounter():
 
-    def __init__(self, size = 500):
+    def __init__(self, size = 10):
         self.size = size
         self.reset()
 
@@ -113,6 +113,7 @@ class SimpleCounter():
         self.count += 1
         if self.count >= self.size:
             self.reset()
+            return True
 
     def get_rate(self):
         try:

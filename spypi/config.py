@@ -29,7 +29,12 @@ def config_schema() -> Schema:
             'timeout': int,
         },
         Optional('processing'): {
-            'framerate': int,
+            'target_video_framerate': int,
+            'target_web_framerate': int,
+            'video_fr_pid': Or(None, [Or(int, float), Or(int, float),
+                                      Or(int, float), Or(int, float), Or(int, float),  Or(int, float)]),
+            'web_fr_pid': Or(None, [Or(int, float), Or(int, float),
+                                      Or(int, float), Or(int, float), Or(int, float),  Or(int, float)]),
             'show_fps': Or(None, bool),
             'use_asyncio': Or(None, bool),
             'recording_directory': Or(None, And(str, len)),
@@ -43,8 +48,6 @@ def config_schema() -> Schema:
             'image_size': Or(None, [int, int]),
             'xvid_size': Or(None, [int, int]),
             'text_pad': int,
-            'web_acq_delay': Or(float, int),
-            'video_acq_delay': Or(float, int),
         },
         Optional('logging'): {
             'level': Or('info', 'debug', 'INFO', 'DEBUG'),
