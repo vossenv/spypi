@@ -199,12 +199,15 @@ class ArduCam(Camera):
         self.logger.debug("Thread started")
 
     def connect_cam(self):
-        self.logger.info("Beginning banana scan... ")
-        code, self.handle, rtn_cfg = ArducamSDK.Py_ArduCam_autoopen(self.cam_config)
-        if code != 0:
-            raise ArducamException("Failed to connect to camera", code=code)
-        self.usb_version = rtn_cfg['usbType']
-        self.logger.info("Camera connected!")
+        for i in range(self.init_retry):
+            self.logger.info("Attempt: {}".format(i))
+            code, self.handle, rtn_cfg = ArducamSDK.Py_ArduCam_autoopen(self.cam_config)
+            if code == 0:
+                self.usb_version = rtn_cfg['usbType']
+                self.logger.info("Camera connected!")
+                return
+            time.sleep(self.init_delay)
+        raise ArducamException("Failed to connect to camera", code=code)
 
     def configure(self):
         camera_parameter = self.register_config["camera_parameter"]
@@ -294,7 +297,7 @@ class ArduCam(Camera):
                 return convert_image(data, rtn_cfg, self.color_mode)
             finally:
                 ArducamSDK.Py_ArduCam_del(self.handle)
-                #ArducamSDK.Py_ArduCam_flush(self.handle)
+                # ArducamSDK.Py_ArduCam_flush(self.handle)
 
     def get_extra_label_info(self):
         if self.data_fields['LUM2'] == 0:
