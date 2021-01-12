@@ -4,6 +4,7 @@ import socket
 import sys
 import threading
 import time
+from collections import deque
 
 import distro
 import yaml
@@ -82,7 +83,8 @@ def init_logger(config):
 
         return logging.getLogger()
 
-class FPSCounter():
+
+class FPSCounter2():
 
     def __init__(self):
         self.count = 0
@@ -104,9 +106,26 @@ class FPSCounter():
         fps = round(self.count / elapsed, 2)
         return fps
 
+
+class FPSCounter():
+
+    def __init__(self, range=100):
+        self.times = deque(maxlen=range)
+        self.increment()
+
+    def increment(self):
+        self.times.append(time.perf_counter())
+
+    def get_fps(self):
+        if len(self.times) < 5:
+            return 0
+        fps = round(len(self.times) / (self.times[-1] - self.times[0]), 2)
+        return fps
+
+
 class SimpleCounter():
 
-    def __init__(self, size = 10):
+    def __init__(self, size=10):
         self.size = size
         self.reset()
 
@@ -119,7 +138,7 @@ class SimpleCounter():
     def get_rate(self):
         try:
             delta = (time.perf_counter() - self.time)
-            return self.count/delta
+            return self.count / delta
         except ZeroDivisionError:
             time.sleep(0.01)
             return self.get_rate()

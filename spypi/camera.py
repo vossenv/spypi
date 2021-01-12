@@ -2,9 +2,11 @@ import json
 import logging
 import time
 from collections import deque
+from io import BytesIO
 
 import ArducamSDK
 import numpy as np
+from imutils.video import VideoStream
 from picamera import PiCamera
 
 from spypi.error import CameraConfigurationException, ArducamException, ImageReadException
@@ -12,6 +14,45 @@ from spypi.lib.ImageConvert import convert_image
 from spypi.resources import get_resource
 from spypi.utils import FPSCounter, SimpleCounter, create_task
 
+
+# class MyOutput(object):
+#     def __init__(self):
+#         self.size = 0
+#         self.buffer = deque(maxlen=60)
+#
+#     def write(self, s):
+#         #jpg_original = base64.b64decode(s)
+#         jpg_as_np = np.frombuffer(s, dtype=np.uint8)
+#         img = cv2.imdecode(jpg_as_np, flags=1)
+#
+#         print(img)
+#
+#         # nparr = np.fromstring(s, np.uint8)
+#         #
+#         # print(nparr)
+#         #
+#         # img_np = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+#         # self.buffer.append(img_np)
+#         # if len(self.buffer) > 0:
+#         #     print(self.buffer[0])
+#         # print("\n\n\n")
+#         #self.size += len(s)
+#
+#     def flush(self):
+#         pass
+#         #print('%d bytes would have been written' % self.size)
+
+# with PiCamera() as camera:
+#     camera.resolution = (640, 480)
+#     camera.framerate = 60
+#     op = MyOutput()
+#     camera.start_recording(op, format='h264')
+#     camera.wait_recording(10)
+#
+#     x = op.buffer.pop()
+#
+#
+#     camera.stop_recording()
 
 class Camera():
 
@@ -25,14 +66,14 @@ class Camera():
         self.stream = None
         self.extra_info = []
         self.logger = logging.getLogger("camera")
-        self.counter = FPSCounter()
-        self.images = deque(maxlen=10)
-        self.count = 0
         self.log_metrics = False
         self.ignore_warnings = False
-        self.log_extra_info = True
-        self.running = True
+        self.log_extra_info = False
+        self.running = False
+        self.images = deque(maxlen=10)
+        self.fps_counter = FPSCounter()
         self.ecount = SimpleCounter(50)
+        self.count = SimpleCounter(500)
 
     @classmethod
     def create(cls, config):
@@ -41,6 +82,8 @@ class Camera():
             return ArduCam(config)
         elif cam == 'picam':
             return PiCam(config)
+        elif cam == 'imupicam':
+            return ImUPiCam(config)
         elif cam == 'usb':
             return UsbCam(config)
 
@@ -55,14 +98,14 @@ class Camera():
                     self.images.append(image)
 
                     # No need to fetch every single frame - it causes data errors
-                    if self.log_extra_info and self.count % 100 == 0:
+                    if self.log_extra_info and self.count.count % 100 == 0:
                         self.extra_info = self.get_extra_label_info()
 
                     # Just for metrics
-                    # if self.log_metrics and self.count % 500 == 0:
-                    #     self.logger.debug("Capture rate: {} FPS".format(self.counter.get_fps()))
-                    #     self.count = 0
-                    self.count += 1
+                    if self.log_metrics and self.count.increment():
+                        self.logger.debug("Capture rate: {} FPS".format(self.fps_counter.get_fps()))
+
+                    self.fps_counter.increment()
 
             except (ImageReadException, ArducamException) as e:
                 self.ecount.increment()
@@ -80,7 +123,7 @@ class Camera():
                 return
 
         self.logger.info("Resetting due to errors")
-        self.reset()
+        self.restart()
 
     def connect(self):
         pass
@@ -88,8 +131,14 @@ class Camera():
     def start(self):
         pass
 
-    def reset(self):
+    def stop(self):
         pass
+
+    def restart(self):
+        self.logger.info("Restarting camera")
+        self.stop()
+        self.start()
+        self.logger.info("Restart done!")
 
     def next_image(self):
         if len(self.images) > 3:
@@ -106,15 +155,41 @@ class ImUPiCam(Camera):
 
     def __init__(self, config):
         super(ImUPiCam, self).__init__(config)
+        self.start()
+
+    def read_next_frame(self):
+        time.sleep(0.02)
+        return self.cam.read()
 
     def connect(self):
-        from imutils.video import VideoStream
-        self.stream = VideoStream(
+        self.cam = VideoStream(
             src=self.dev_id,
             usePiCamera=True,
             resolution=self.frame_size,
-            framerate=5
+            # framerate=60
         )
+
+    def start(self):
+        self.logger.info("Starting picam")
+        self.running = True
+        self.connect()
+        self.cam.start()
+        create_task(self.read_frames).start()
+        self.logger.info("Picam thread started")
+
+    def stop(self):
+        self.logger.info("Stopping picam")
+        self.running = False
+        self.cam.stop()
+        self.images.clear()
+        self.logger.info("Picam stopped")
+
+    def next_image(self):
+        if len(self.images) > 3:
+            return self.images[0].copy()
+
+    def get_extra_label_info(self):
+        return []
 
 
 class PiCam(Camera):
@@ -122,14 +197,23 @@ class PiCam(Camera):
     def __init__(self, config):
         super(PiCam, self).__init__(config)
 
-        self.connect()
-        create_task(self.read_frames).start()
-        print()
+        self.height = self.frame_size[1]
+        self.width = self.frame_size[0]
+
+        self.start()
+
+    def get_blank_image(self):
+        return np.empty((self.height, self.width, 3), dtype=np.uint8)
 
     def read_next_frame(self):
-        output = np.empty((self.frame_size[1], self.frame_size[0], 3), dtype=np.uint8)
-        self.picam.capture(output, 'rgb')
-        return output
+        t1 = time.perf_counter()
+        my_stream = BytesIO()
+        # image = self.get_blank_image()
+        # self.cam.capture(my_stream, 'jpeg')
+
+        dt = time.perf_counter() - t1
+        return None
+
         # filename = os.path.abspath("frame.jpg")
         # cv2.imwrite(filename, output)
         # output = output.reshape((112, 128, 3))
@@ -138,8 +222,30 @@ class PiCam(Camera):
         # x = self.picam.capture(output, format='rgb')
 
     def connect(self):
-        self.picam = PiCamera(resolution=self.frame_size, framerate=24)
+        self.logger.info("Connecting to picamera")
+        self.cam = PiCamera(resolution=self.frame_size)
         time.sleep(2)
+
+    def start(self):
+        self.logger.info("Starting picam")
+        self.running = True
+        self.connect()
+        create_task(self.read_frames).start()
+        self.logger.info("Picam thread started")
+
+    def stop(self):
+        self.logger.info("Stopping picam")
+        self.running = False
+        self.cam.close()
+        self.images.clear()
+        self.logger.info("Picam stopped")
+
+    def next_image(self):
+        if len(self.images) > 3:
+            return self.images[0].copy()
+
+    def get_extra_label_info(self):
+        return []
 
 
 class UsbCam(Camera):
@@ -182,30 +288,31 @@ class ArduCam(Camera):
             self.register_config = json.load(f)
 
         self.start(full=True)
-        self.logger.debug("Thread started")
         self.extra_info = self.get_extra_label_info()
 
     def start(self, full=False):
+        self.logger.info("Start arducam capture thread")
         self.handle = {}
         if full:
             self.configure()
         else:
             self.connect_cam()
         self.running = True
-        self.logger.info("Start arducam capture thread")
         start_code = ArducamSDK.Py_ArduCam_beginCaptureImage(self.handle)
         if start_code != 0:
             raise ArducamException("Error starting capture thread", code=start_code)
         create_task(self.read_frames).start()
+        self.logger.info("Arducam thread started")
 
-    def reset(self, callback=None):
+    def stop(self):
+        self.logger.info("Stopping arducam")
         self.running = False
         ArducamSDK.Py_ArduCam_del(self.handle)
         ArducamSDK.Py_ArduCam_flush(self.handle)
         ArducamSDK.Py_ArduCam_endCaptureImage(self.handle)
         ArducamSDK.Py_ArduCam_close(self.handle)
         self.images.clear()
-        self.start()
+        self.logger.info("Arducam stopped")
 
     def start_capture(self):
         self.logger.info("Start arducam capture thread")
@@ -215,6 +322,7 @@ class ArduCam(Camera):
         self.logger.debug("Thread started")
 
     def connect_cam(self):
+        self.logger.info("Connecting to arducam")
         for i in range(self.init_retry):
             self.logger.info("Attempt: {}".format(i))
             code, self.handle, rtn_cfg = ArducamSDK.Py_ArduCam_autoopen(self.cam_config)
@@ -309,7 +417,6 @@ class ArduCam(Camera):
                 rtn_val, data, rtn_cfg = ArducamSDK.Py_ArduCam_readImage(self.handle)
                 if rtn_val != 0 or rtn_cfg['u32Size'] == 0:
                     raise ArducamException("Bad image read! Datasize was {}".format(rtn_cfg['u32Size']), code=rtn_val)
-                self.counter.increment()
                 return convert_image(data, rtn_cfg, self.color_mode)
             finally:
                 ArducamSDK.Py_ArduCam_del(self.handle)
