@@ -8,6 +8,7 @@ import ArducamSDK
 import numpy as np
 from imutils.video import VideoStream
 from picamera import PiCamera
+from simple_pid import PID
 
 from spypi.error import CameraConfigurationException, ArducamException, ImageReadException
 from spypi.lib.ImageConvert import convert_image
@@ -73,7 +74,7 @@ class Camera():
         self.images = deque(maxlen=10)
         self.fps_counter = FPSCounter()
         self.ecount = SimpleCounter(50)
-        self.count = SimpleCounter(500)
+        self.count = SimpleCounter(50)
 
     @classmethod
     def create(cls, config):
@@ -158,7 +159,7 @@ class ImUPiCam(Camera):
         self.start()
 
     def read_next_frame(self):
-        time.sleep(0.02)
+        time.sleep(0.025)
         return self.cam.read()
 
     def connect(self):
@@ -166,7 +167,6 @@ class ImUPiCam(Camera):
             src=self.dev_id,
             usePiCamera=True,
             resolution=self.frame_size,
-            # framerate=60
         )
 
     def start(self):

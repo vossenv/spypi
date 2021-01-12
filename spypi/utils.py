@@ -84,29 +84,6 @@ def init_logger(config):
         return logging.getLogger()
 
 
-class FPSCounter2():
-
-    def __init__(self):
-        self.count = 0
-        self.time0 = time.perf_counter()
-        self.time = self.time0
-
-    def increment(self):
-        self.count += 1
-        self.time = time.perf_counter()
-        if self.count > 100:
-            self.count = 0
-            self.time0 = time.perf_counter()
-            self.time = self.time0
-
-    def get_fps(self):
-        elapsed = self.time - self.time0
-        if elapsed == 0:
-            return 0
-        fps = round(self.count / elapsed, 2)
-        return fps
-
-
 class FPSCounter():
 
     def __init__(self, range=100):
