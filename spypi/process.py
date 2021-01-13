@@ -112,7 +112,7 @@ class ImageProcessor():
                         self.logger.debug("{0} // framerate: {1} // sleeptime: {2}"
                                           .format(name.capitalize(), fps, round(delay, 4)))
                     cfps = self.camera.image_counter.get_rate()
-                    if name == 'video' and fps >= cfps:
+                    if name == 'video' and not self.ignore_warnings and fps >= cfps:
                         self.logger.warning("Warning: stream-to-video fps ({0})> "
                                             "acquisition rate ({1})! Please adjust PID"
                                             .format(fps, cfps))

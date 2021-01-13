@@ -7,6 +7,7 @@ device:
   init_retry: 10
   max_error_rate: 5       # arducam only
   cam_rotate: 0           # Only supported by picam
+  codec: h264         # only for picam-direct
 connection:
   host: http://192.168.50.139:9001
   name: default55

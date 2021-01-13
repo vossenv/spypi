@@ -31,8 +31,8 @@ def config_schema() -> Schema:
             'timeout': int,
         },
         Optional('processing'): {
-            'target_video_framerate': int,
-            'target_web_framerate': int,
+            'target_video_framerate': Or(int, float),
+            'target_web_framerate': Or(int, float),
             'video_fr_pid': Or(None, [Or(int, float), Or(int, float),
                                       Or(int, float), Or(int, float), Or(int, float),  Or(int, float)]),
             'web_fr_pid': Or(None, [Or(int, float), Or(int, float),
