@@ -216,7 +216,7 @@ class ArduCam(Camera):
         start_code = ArducamSDK.Py_ArduCam_beginCaptureImage(self.handle)
         if start_code != 0:
             raise ArducamException("Error starting capture thread", code=start_code)
-        start_thread(self.read_frames).start()
+        start_thread(self.read_frames)
         self.logger.info("Arducam thread started")
 
     def stop(self):
