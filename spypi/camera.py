@@ -4,10 +4,10 @@ import time
 from collections import deque
 
 import ArducamSDK
-from picamera import PiCamera, PiCameraValueError
+from picamera import PiCamera
 from picamera.array import PiRGBAnalysis
 
-from spypi.error import CameraConfigurationException, ArducamException, ImageReadException, PiCamException
+from spypi.error import CameraConfigurationException, ArducamException, ImageReadException
 from spypi.lib.ImageConvert import convert_image
 from spypi.resources import get_resource
 from spypi.utils import FPSCounter, SimpleCounter, create_task
@@ -36,16 +36,14 @@ class Camera():
         self.init_delay = config['init_delay']
         self.init_retry = config['init_retry']
         self.max_error_rate = config['max_error_rate']
-        self.stream = None
+        self.cam_rotate = config['cam_rotate']
         self.extra_info = []
         self.logger = logging.getLogger("camera")
         self.log_metrics = False
         self.ignore_warnings = False
         self.log_extra_info = False
-        self.running = False
         self.images = deque(maxlen=10)
         self.fps_counter = FPSCounter()
-        self.ecount = SimpleCounter(50)
         self.count = SimpleCounter(50)
 
     @classmethod
@@ -59,27 +57,6 @@ class Camera():
             return UsbCam(config)
 
         raise ValueError("Unknown camera type: {}".format(cam))
-
-    def read_frames(self):
-        while True and self.running:
-            try:
-                image = self.read_next_frame()
-                if image is not None:
-                    self.add_image(image)
-            except (ImageReadException, ArducamException) as e:
-                self.ecount.increment()
-                if self.max_error_rate < self.ecount.get_rate():
-                    break
-                if self.ignore_warnings and isinstance(e, ArducamException) and e.code == 65316:
-                    pass
-                else:
-                    self.logger.warning(e)
-            except Exception as e:
-                self.logger.error("Unknown error encountered: {}".format(e))
-                return
-
-        self.logger.info("Resetting due to errors")
-        self.restart()
 
     def add_image(self, image):
         self.images.append(image)
@@ -132,6 +109,7 @@ class PiCam(Camera):
             try:
                 self.logger.info("Attempt: {}".format(i))
                 self.cam = PiCamera(resolution=self.frame_size)
+                self.cam.rotation = self.cam_rotate
                 time.sleep(self.init_delay)
                 return
             except Exception as e:
@@ -192,6 +170,8 @@ class ArduCam(Camera):
         self.width = 0
         self.height = 0
         self.field_index = 0
+        self.running = False
+        self.ecount = SimpleCounter(50)
         self.data_fields = {
             'TIME': 0,
             'ISO': 0,
@@ -204,6 +184,27 @@ class ArduCam(Camera):
 
         self.start(full=True)
         self.extra_info = self.get_extra_label_info()
+
+    def read_frames(self):
+        while True and self.running:
+            try:
+                image = self.read_next_frame()
+                if image is not None:
+                    self.add_image(image)
+            except ArducamException as e:
+                self.ecount.increment()
+                if self.max_error_rate < self.ecount.get_rate():
+                    break
+                if self.ignore_warnings and isinstance(e, ArducamException) and e.code == 65316:
+                    pass
+                else:
+                    self.logger.warning(e)
+            except Exception as e:
+                self.logger.error("Unknown error encountered: {}".format(e))
+                return
+
+        self.logger.info("Resetting due to errors")
+        self.restart()
 
     def start(self, full=False):
         self.logger.info("Start arducam capture thread")

@@ -22,6 +22,7 @@ def config_schema() -> Schema:
             'init_retry': Or(float, int),
             'arducam_registers': Or(None, And(str, len)),
             'max_error_rate': Or(float, int),
+            'cam_rotate': Or(90, 180, 270),
         },
         Optional('connection'): {
             'name': And(str, len),
