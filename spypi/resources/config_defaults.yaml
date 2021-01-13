@@ -34,4 +34,3 @@ processing:
   image_size:      # width, height (for posted images)
   data_bar_size: 75     # %
   text_pad: 10
-  xvid_size: [ 1280, 964 ]

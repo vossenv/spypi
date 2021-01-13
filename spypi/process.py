@@ -12,7 +12,7 @@ from simple_pid import PID
 from spypi.camera import Camera
 from spypi.error import ImageReadException, ArducamException
 from spypi.model import Connector, VideoStream, ImageManip as im
-from spypi.utils import FPSCounter, SimpleCounter, create_task
+from spypi.utils import MultiCounter, start_thread
 
 
 class ImageProcessor():
@@ -45,10 +45,6 @@ class ImageProcessor():
         self.log_extra_info = self.camera.log_extra_info = self.config['logging']['log_extra_info']
         self.camera.log_metrics = self.log_metrics
 
-        if config['device']['camera'] != 'arducam' and \
-                config['device']['frame_size'] != config['processing']['xvid_size']:
-            self.logger.warning("Device frame size and xvid size do not match.")
-
     def run(self):
 
         tasks = []
@@ -57,12 +53,12 @@ class ImageProcessor():
             self.connector = Connector(self.config['connection'])
 
         if self.send_images:
-            tasks.append(create_task(
+            tasks.append(start_thread(
                 self.stream_process,
                 next=self.camera.next_image,
                 transform=self.apply_stream_transforms,
                 handle=self.connector.send_image,
-                name="Web",
+                name="web",
                 controller=self.get_pid(self.web_pid, self.target_web_framerate)
             ))
 
@@ -71,23 +67,21 @@ class ImageProcessor():
                 filename_prefix=self.config['connection']['name'],
                 directory=self.recording_directory,
                 max_file_size=self.video_filesize,
-                resolution=self.config['processing']['xvid_size'],
+                resolution=self.config['device']['frame_size'],
                 fps=self.target_video_framerate
             )
 
-            tasks.append(create_task(
+            tasks.append(start_thread(
                 self.stream_process,
                 next=self.camera.next_image,
                 transform=self.apply_video_transforms,
                 handle=self.video_stream.add_frame,
-                name="Video",
+                name="video",
                 controller=self.get_pid(self.vid_pid, self.target_video_framerate)
             ))
 
             if self.send_video:
-                tasks.append(create_task(self.send_directory_video))
-
-        [t.start() for t in tasks]
+                tasks.append(start_thread(self.send_directory_video))
 
     def get_pid(self, params, target):
         pid = PID(params[0], params[1], params[2], setpoint=target)
@@ -95,31 +89,34 @@ class ImageProcessor():
         pid.interval = params[-1]
         return pid
 
-    def stream_process(self, next, transform, handle, name, controller, sleepf=time.sleep):
+    def stream_process(self, next, transform, handle, name, controller):
         delay = 0
         interval = controller.interval
-        sc = SimpleCounter(10)
-        fc = FPSCounter()
-        fps_queue = deque(maxlen=interval)
+        fc = MultiCounter(interval)
+        fps_averages = deque(maxlen=interval)
         while True:
             try:
                 img = next()
                 if img is None:
                     continue
-                f = fc.get_fps()
-                fps_queue.append(f)
-                if sc.increment():
-                    fps = round(sum(fps_queue) / interval, 2)
+                f = fc.get_rate()
+                fps_averages.append(f)
+                if fc.increment():
+                    fps = round(sum(fps_averages) / interval, 2)
                     delay = controller(fps)
                     if self.log_metrics:
-                        self.logger.info("{0}: {1} frame avg fps: {2} delay: {3}"
-                                         .format(name, interval, fps, round(delay,4)))
-                fc.increment()
+                        self.logger.debug("{0}: {1} frame avg fps: {2} delay: {3}"
+                                          .format(name, interval, fps, round(delay, 4)))
+                    cfps = self.camera.image_counter.get_rate()
+                    if fps >= cfps:
+                        self.logger.warning("Warning: stream-to-{0} fps ({1})> "
+                                            "acquisition rate ({2})! Please adjust PID"
+                                            .format(name, fps, cfps))
                 handle(transform(img, f))
             except IndexError:
-                time.sleep(0.001)
+                pass
             finally:
-                sleepf(delay)
+                time.sleep(delay)
 
     def apply_stream_transforms(self, image, fps=None):
         image = im.crop(image, self.crop)

@@ -41,7 +41,7 @@ from picamera.color import Color
 # print('Captured %d frames at %.2ffps' % (
 #     output.frame_num,
 #     output.frame_num / (finish - start)))
-from spypi.utils import FPSCounter, SimpleCounter
+from spypi.utils import MultiCounter, SimpleCounter
 
 
 class MyColorAnalyzer(PiRGBAnalysis):
@@ -49,13 +49,13 @@ class MyColorAnalyzer(PiRGBAnalysis):
         super(MyColorAnalyzer, self).__init__(camera)
         self.last_color = ''
         self.buffer = deque(maxlen=50)
-        self.fps = FPSCounter()
+        self.fps = MultiCounter()
         self.c = SimpleCounter(30)
     def analyze(self, a):
         self.buffer.append(a)
         self.fps.increment()
         if self.c.increment():
-            print(self.fps.get_fps())
+            print(self.fps.get_rate())
 
         # Convert the average color of the pixels in the middle box
         # c = Color(

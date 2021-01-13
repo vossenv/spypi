@@ -84,46 +84,26 @@ def init_logger(config):
         return logging.getLogger()
 
 
-class FPSCounter():
+def start_thread(process_handle, **kwargs):
+    threading.Thread(target=process_handle, args=kwargs.values()).start()
 
-    def __init__(self, range=100):
-        self.times = deque(maxlen=range)
+
+class MultiCounter():
+    def __init__(self, size=100):
+        self.times = deque(maxlen=size)
+        self.count = -1
+        self.size = size
         self.increment()
 
     def increment(self):
         self.times.append(time.perf_counter())
-
-    def get_fps(self):
-        if len(self.times) < 5:
-            return 0
-        fps = round(len(self.times) / (self.times[-1] - self.times[0]), 2)
-        return fps
-
-
-class SimpleCounter():
-
-    def __init__(self, size=10):
-        self.size = size
-        self.reset()
-
-    def increment(self):
         self.count += 1
         if self.count >= self.size:
-            self.reset()
+            self.count = 0
             return True
 
     def get_rate(self):
-        try:
-            delta = (time.perf_counter() - self.time)
-            return self.count / delta
-        except ZeroDivisionError:
-            time.sleep(0.01)
-            return self.get_rate()
-
-    def reset(self):
-        self.count = 0
-        self.time = time.perf_counter()
-
-
-def create_task(process_handle, **kwargs):
-    return threading.Thread(target=process_handle, args=kwargs.values())
+        if len(self.times) < 5:
+            return 0
+        rate = round(len(self.times) / (self.times[-1] - self.times[0]), 2)
+        return rate

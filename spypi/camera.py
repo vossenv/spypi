@@ -7,10 +7,10 @@ import ArducamSDK
 from picamera import PiCamera
 from picamera.array import PiRGBAnalysis
 
-from spypi.error import CameraConfigurationException, ArducamException, ImageReadException
+from spypi.error import CameraConfigurationException, ArducamException
 from spypi.lib.ImageConvert import convert_image
 from spypi.resources import get_resource
-from spypi.utils import FPSCounter, SimpleCounter, create_task
+from spypi.utils import MultiCounter, start_thread
 
 
 # if self.frame_size[0] % 32 != 0 or self.frame_size[1] % 32 != 0:
@@ -43,8 +43,7 @@ class Camera():
         self.ignore_warnings = False
         self.log_extra_info = False
         self.images = deque(maxlen=10)
-        self.fps_counter = FPSCounter()
-        self.count = SimpleCounter(50)
+        self.image_counter = MultiCounter(50)
 
     @classmethod
     def create(cls, config):
@@ -60,15 +59,15 @@ class Camera():
 
     def add_image(self, image):
         self.images.append(image)
-        self.fps_counter.increment()
 
-        # No need to fetch every single frame - it causes data errors
-        if self.log_extra_info and self.count.count % 100 == 0:
-            self.extra_info = self.get_extra_label_info()
+        if self.image_counter.increment():
+            # No need to fetch every single frame - it causes data errors
+            if self.log_extra_info:
+                self.extra_info = self.get_extra_label_info()
 
-        # Just for metrics
-        if self.log_metrics and self.count.increment():
-            self.logger.debug("Capture rate: {} FPS".format(self.fps_counter.get_fps()))
+            # Just for metrics
+            if self.log_metrics:
+                self.logger.debug("Capture rate: {} FPS".format(self.image_counter.get_rate()))
 
     def connect(self):
         pass
@@ -171,7 +170,7 @@ class ArduCam(Camera):
         self.height = 0
         self.field_index = 0
         self.running = False
-        self.ecount = SimpleCounter(50)
+        self.error_counter = MultiCounter()
         self.data_fields = {
             'TIME': 0,
             'ISO': 0,
@@ -192,8 +191,8 @@ class ArduCam(Camera):
                 if image is not None:
                     self.add_image(image)
             except ArducamException as e:
-                self.ecount.increment()
-                if self.max_error_rate < self.ecount.get_rate():
+                self.error_counter.increment()
+                if self.max_error_rate < self.error_counter.get_rate():
                     break
                 if self.ignore_warnings and isinstance(e, ArducamException) and e.code == 65316:
                     pass
@@ -217,7 +216,7 @@ class ArduCam(Camera):
         start_code = ArducamSDK.Py_ArduCam_beginCaptureImage(self.handle)
         if start_code != 0:
             raise ArducamException("Error starting capture thread", code=start_code)
-        create_task(self.read_frames).start()
+        start_thread(self.read_frames).start()
         self.logger.info("Arducam thread started")
 
     def stop(self):

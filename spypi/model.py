@@ -8,7 +8,7 @@ import cv2
 import imutils
 import requests
 
-from spypi.utils import SimpleCounter
+from spypi.utils import MultiCounter
 
 
 class ImageManip():
@@ -95,7 +95,7 @@ class VideoStream():
         self.resolution = tuple(resolution or [1280, 964])
         self.logger = logging.getLogger("video")
         self.fps = fps
-        self.output_counter = SimpleCounter(20)
+        self.output_counter = MultiCounter(20)
         os.makedirs(self.directory, exist_ok=True)
         self.writer = self.get_writer()
 

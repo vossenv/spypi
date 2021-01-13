@@ -22,7 +22,7 @@ def config_schema() -> Schema:
             'init_retry': Or(float, int),
             'arducam_registers': Or(None, And(str, len)),
             'max_error_rate': Or(float, int),
-            'cam_rotate': Or(90, 180, 270),
+            'cam_rotate': Or(0, 90, 180, 270),
         },
         Optional('connection'): {
             'name': And(str, len),
@@ -46,7 +46,6 @@ def config_schema() -> Schema:
             'rotation': Or(float, int),
             'data_bar_size': int,
             'image_size': Or(None, [int, int]),
-            'xvid_size': Or(None, [int, int]),
             'text_pad': int,
         },
         Optional('logging'): {
