@@ -99,9 +99,12 @@ class VideoStream():
         os.makedirs(self.directory, exist_ok=True)
         self.writer = self.get_writer()
 
-    def get_filename(self):
-        return join(self.directory, "LOCKED-{0}-{1}.avi".format(
-            self.filename_prefix, datetime.now().strftime("%Y-%m-%d_%H-%M-%S")))
+    def get_filename(self, extension="avi"):
+        return join(self.directory, "LOCKED-{0}-{1}.{2}".format(
+            self.filename_prefix, datetime.now().strftime("%Y-%m-%d_%H-%M-%S"), extension))
+
+    def get_filesize(self, filename):
+        return round(os.stat(filename).st_size * 1e-6, 2)
 
     def get_writer(self):
         self.filename = self.get_filename()
@@ -110,7 +113,7 @@ class VideoStream():
     def add_frame(self, frame):
         self.writer.write(frame)
         if self.output_counter.increment():
-            self.disk_size = round(os.stat(self.filename).st_size * 1e-6, 2)
+            self.disk_size = self.get_filesize(self.filename)
             if round(self.disk_size) >= self.max_file_size:
                 self.start_new_file()
                 self.logger.debug(

@@ -15,14 +15,15 @@ def config_schema() -> Schema:
     from schema import And, Or
     return Schema({
         'device': {
-            'camera': Or('picam', 'arducam', 'usb'),
+            'camera': Or('picam', 'arducam', 'usb', 'picam-direct'),
             'device_id': int,
-            'frame_size': Or(None, [int, int]),
+            'frame_size': [int, int],
             'init_delay': Or(float, int),
             'init_retry': Or(float, int),
             'arducam_registers': Or(None, And(str, len)),
             'max_error_rate': Or(float, int),
             'cam_rotate': Or(0, 90, 180, 270),
+            'codec': Or('h264')
         },
         Optional('connection'): {
             'name': And(str, len),

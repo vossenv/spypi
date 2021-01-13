@@ -1,9 +1,11 @@
 import json
 import logging
+import os
 import time
 from collections import deque
 
 import ArducamSDK
+import numpy as np
 from picamera import PiCamera
 from picamera.array import PiRGBAnalysis
 
@@ -11,20 +13,6 @@ from spypi.error import CameraConfigurationException, ArducamException
 from spypi.lib.ImageConvert import convert_image
 from spypi.resources import get_resource
 from spypi.utils import MultiCounter, start_thread
-
-
-# if self.frame_size[0] % 32 != 0 or self.frame_size[1] % 32 != 0:
-#     raise ValueError("Specified frame size of {} "
-#                      "is not a multiple of 32".format(self.frame_size))
-
-# def get_blank_image(self):
-#     return np.empty((self.frame_size[1], self.frame_size[0], 3), dtype=np.uint8)
-#
-#
-# def read_next_frame(self):
-#     image = self.get_blank_image()
-#     self.cam.capture(image, 'rgb', use_video_port=True)
-#     return image
 
 
 class Camera():
@@ -37,8 +25,9 @@ class Camera():
         self.init_retry = config['init_retry']
         self.max_error_rate = config['max_error_rate']
         self.cam_rotate = config['cam_rotate']
+        self.codec = config['codec']
         self.extra_info = []
-        self.logger = logging.getLogger("camera")
+        self.logger = logging.getLogger(self.camera_type)
         self.log_metrics = False
         self.ignore_warnings = False
         self.log_extra_info = False
@@ -52,6 +41,8 @@ class Camera():
             return ArduCam(config)
         elif cam == 'picam':
             return PiCam(config)
+        elif cam == 'picam-direct':
+            return PiCamDirect(config)
         elif cam == 'usb':
             return UsbCam(config)
 
@@ -67,7 +58,7 @@ class Camera():
 
             # Just for metrics
             if self.log_metrics:
-                self.logger.debug("Capture rate: {} FPS".format(self.image_counter.get_rate()))
+                self.logger.debug("Camera // framerate: {}".format(self.image_counter.get_rate()))
 
     def connect(self):
         pass
@@ -100,7 +91,6 @@ class PiCam(Camera):
 
     def __init__(self, config):
         super(PiCam, self).__init__(config)
-        self.start()
 
     def connect(self):
         self.logger.info("Connecting to picamera")
@@ -129,6 +119,57 @@ class PiCam(Camera):
         self.cam.close()
         self.images.clear()
         self.logger.info("Picam stopped")
+
+
+class PiCamDirect(PiCam):
+
+    def __init__(self, config):
+        super(PiCamDirect, self).__init__(config)
+        self.vstream = None
+        self.capture_image = False
+
+    def start(self):
+        self.logger.info("Starting picam")
+        self.connect()
+        start_thread(self.record)
+        if self.capture_image:
+            start_thread(self.capture_thread)
+
+        self.logger.info("Picam thread started")
+
+    def get_blank_image(self):
+        return np.empty((self.frame_size[1], self.frame_size[0], 3), dtype=np.uint8)
+
+    def capture_thread(self):
+        while True:
+            image = self.get_blank_image()
+            self.cam.capture(image, 'rgb', use_video_port=True)
+            self.add_image(image)
+            time.sleep(0.15)
+
+    def new_file(self):
+        return self.vstream.get_filename(extension=self.codec)
+
+    def record(self):
+        while self.vstream is None:
+            self.logger.info("wait for video stream")
+            time.sleep(0.5)
+        self.logger.info("Stream ready! Start capture")
+
+        filename = self.new_file()
+        self.cam.start_recording(filename, format=self.codec)
+        self.logger.info("Recording started")
+
+        while True:
+            self.cam.wait_recording(5)
+            disk_size = self.vstream.get_filesize(filename)
+            if round(disk_size) >= self.vstream.max_file_size:
+                old_filename = filename
+                filename = self.new_file()
+                self.logger.debug(
+                    "Max size exceeded ({0}). Start new file: {1}".format(disk_size, filename))
+                self.cam.split_recording(filename)
+                os.rename(old_filename, old_filename.replace("LOCKED-", ""))
 
 
 class PiCamBuffer(PiRGBAnalysis):
@@ -181,9 +222,6 @@ class ArduCam(Camera):
         with open(self.register_config_path, 'r') as f:
             self.register_config = json.load(f)
 
-        self.start(full=True)
-        self.extra_info = self.get_extra_label_info()
-
     def read_frames(self):
         while True and self.running:
             try:
@@ -205,7 +243,7 @@ class ArduCam(Camera):
         self.logger.info("Resetting due to errors")
         self.restart()
 
-    def start(self, full=False):
+    def start(self, full=True):
         self.logger.info("Start arducam capture thread")
         self.handle = {}
         if full:
@@ -217,6 +255,7 @@ class ArduCam(Camera):
         if start_code != 0:
             raise ArducamException("Error starting capture thread", code=start_code)
         start_thread(self.read_frames)
+        self.extra_info = self.get_extra_label_info()
         self.logger.info("Arducam thread started")
 
     def stop(self):
@@ -228,6 +267,12 @@ class ArduCam(Camera):
         ArducamSDK.Py_ArduCam_close(self.handle)
         self.images.clear()
         self.logger.info("Arducam stopped")
+
+    def restart(self):
+        self.logger.info("Restarting camera")
+        self.stop()
+        self.start(full=False)
+        self.logger.info("Restart done!")
 
     def start_capture(self):
         self.logger.info("Start arducam capture thread")

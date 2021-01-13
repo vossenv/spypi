@@ -1,13 +1,7 @@
-import os
-import time
 from collections import deque
 
-import cv2
 import picamera
-import numpy as np
 from picamera.array import PiRGBAnalysis
-from picamera.color import Color
-
 
 # class SplitFrames(object):
 #     def __init__(self):
@@ -41,21 +35,21 @@ from picamera.color import Color
 # print('Captured %d frames at %.2ffps' % (
 #     output.frame_num,
 #     output.frame_num / (finish - start)))
-from spypi.utils import MultiCounter, SimpleCounter
-
-
-class MyColorAnalyzer(PiRGBAnalysis):
-    def __init__(self, camera):
-        super(MyColorAnalyzer, self).__init__(camera)
-        self.last_color = ''
-        self.buffer = deque(maxlen=50)
-        self.fps = MultiCounter()
-        self.c = SimpleCounter(30)
-    def analyze(self, a):
-        self.buffer.append(a)
-        self.fps.increment()
-        if self.c.increment():
-            print(self.fps.get_rate())
+# from spypi.utils import MultiCounter
+#
+#
+# class MyColorAnalyzer(PiRGBAnalysis):
+#     def __init__(self, camera):
+#         super(MyColorAnalyzer, self).__init__(camera)
+#         self.last_color = ''
+#         self.buffer = deque(maxlen=50)
+#         self.fps = MultiCounter()
+#         self.c = SimpleCounter(30)
+#     def analyze(self, a):
+#         self.buffer.append(a)
+#         self.fps.increment()
+#         if self.c.increment():
+#             print(self.fps.get_rate())
 
         # Convert the average color of the pixels in the middle box
         # c = Color(
@@ -79,17 +73,14 @@ class MyColorAnalyzer(PiRGBAnalysis):
         #     self.last_color = c
 
 camera = picamera.PiCamera(resolution='1280x976', framerate=30)
-analyzer = MyColorAnalyzer(camera)
+# analyzer = MyColorAnalyzer(camera)
 camera.rotation=270
 #camera.start_recording(analyzer, 'rgb')
 camera.start_recording('test.h264', 'h264')
 
-for filename in camera.capture_continuous('img{timestamp:%Y-%m-%d-%H-%M}.jpg'):
-        print('Captured %s' % filename)
-        time.sleep(1)
 
-# while True:
-#     camera.capture_continuous(['test.jpg'])
-#     camera.wait_recording(1)
+while True:
+    camera.capture('test.jpg', use_video_port=True)
+    camera.wait_recording(1)
 
     #cv2.imwrite("frame12.jpg", analyzer.buffer.pop())

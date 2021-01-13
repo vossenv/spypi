@@ -9,7 +9,7 @@ from os.path import join
 import cv2
 from simple_pid import PID
 
-from spypi.camera import Camera
+from spypi.camera import Camera, PiCamDirect
 from spypi.error import ImageReadException, ArducamException
 from spypi.model import Connector, VideoStream, ImageManip as im
 from spypi.utils import MultiCounter, start_thread
@@ -44,26 +44,31 @@ class ImageProcessor():
         self.ignore_warnings = self.camera.ignore_warnings = self.config['logging']['ignore_warnings']
         self.log_extra_info = self.camera.log_extra_info = self.config['logging']['log_extra_info']
         self.camera.log_metrics = self.log_metrics
+        self.camera.capture_image = self.send_images
 
     def run(self):
 
-        tasks = []
+        self.camera.start()
 
         if self.send_video or self.send_images:
             self.connector = Connector(self.config['connection'])
 
         if self.send_images:
-            tasks.append(start_thread(
+            start_thread(
                 self.stream_process,
                 next=self.camera.next_image,
                 transform=self.apply_stream_transforms,
                 handle=self.connector.send_image,
                 name="web",
                 controller=self.get_pid(self.web_pid, self.target_web_framerate)
-            ))
+            )
 
         if self.record_video:
-            self.video_stream = VideoStream(
+
+            if self.send_video:
+                start_thread(self.send_directory_video)
+
+            self.video_stream = self.camera.vstream = VideoStream(
                 filename_prefix=self.config['connection']['name'],
                 directory=self.recording_directory,
                 max_file_size=self.video_filesize,
@@ -71,17 +76,15 @@ class ImageProcessor():
                 fps=self.target_video_framerate
             )
 
-            tasks.append(start_thread(
-                self.stream_process,
-                next=self.camera.next_image,
-                transform=self.apply_video_transforms,
-                handle=self.video_stream.add_frame,
-                name="video",
-                controller=self.get_pid(self.vid_pid, self.target_video_framerate)
-            ))
-
-            if self.send_video:
-                tasks.append(start_thread(self.send_directory_video))
+            if not isinstance(self.camera, PiCamDirect):
+                start_thread(
+                    self.stream_process,
+                    next=self.camera.next_image,
+                    transform=self.apply_video_transforms,
+                    handle=self.video_stream.add_frame,
+                    name="video",
+                    controller=self.get_pid(self.vid_pid, self.target_video_framerate)
+                )
 
     def get_pid(self, params, target):
         pid = PID(params[0], params[1], params[2], setpoint=target)
@@ -105,13 +108,13 @@ class ImageProcessor():
                     fps = round(sum(fps_averages) / interval, 2)
                     delay = controller(fps)
                     if self.log_metrics:
-                        self.logger.debug("{0}: {1} frame avg fps: {2} delay: {3}"
-                                          .format(name, interval, fps, round(delay, 4)))
+                        self.logger.debug("{0} // framerate: {1} // sleeptime: {2}"
+                                          .format(name.capitalize(), fps, round(delay, 4)))
                     cfps = self.camera.image_counter.get_rate()
-                    if fps >= cfps:
-                        self.logger.warning("Warning: stream-to-{0} fps ({1})> "
-                                            "acquisition rate ({2})! Please adjust PID"
-                                            .format(name, fps, cfps))
+                    if name == 'video' and fps >= cfps:
+                        self.logger.warning("Warning: stream-to-video fps ({0})> "
+                                            "acquisition rate ({1})! Please adjust PID"
+                                            .format(fps, cfps))
                 handle(transform(img, f))
             except IndexError:
                 pass
@@ -177,6 +180,7 @@ class ImageWriter():
     def __init__(self, config):
         self.logger = logging.getLogger("reader")
         self.processor = ImageProcessor(config)
+        self.processor.camera.start()
 
     def write_images(self, number):
         i = 0
@@ -196,6 +200,7 @@ class ImagePlayer():
     def __init__(self, config):
         self.logger = logging.getLogger("reader")
         self.processor = ImageProcessor(config)
+        self.processor.camera.start()
 
     def run(self):
         while True:
