@@ -27,6 +27,7 @@ class Camera():
         self.cam_rotate = config['cam_rotate']
         self.codec = config['codec']
         self.extra_info = []
+        self.framerate = 30
         self.logger = logging.getLogger(self.camera_type)
         self.log_metrics = False
         self.ignore_warnings = False
@@ -97,7 +98,7 @@ class PiCam(Camera):
         for i in range(self.init_retry):
             try:
                 self.logger.info("Attempt: {}".format(i))
-                self.cam = PiCamera(resolution=self.frame_size)
+                self.cam = PiCamera(resolution=self.frame_size, framerate=self.framerate)
                 self.cam.rotation = self.cam_rotate
                 time.sleep(self.init_delay)
                 return
@@ -282,6 +283,7 @@ class ArduCam(Camera):
         self.logger.debug("Thread started")
 
     def connect_cam(self):
+        code = -1
         self.logger.info("Connecting to arducam")
         for i in range(self.init_retry):
             self.logger.info("Attempt: {}".format(i))

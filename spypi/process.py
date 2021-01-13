@@ -45,6 +45,7 @@ class ImageProcessor():
         self.log_extra_info = self.camera.log_extra_info = self.config['logging']['log_extra_info']
         self.camera.log_metrics = self.log_metrics
         self.camera.capture_image = self.send_images
+        self.camera.framerate = processing_config['target_video_framerate']
 
     def run(self):
 
