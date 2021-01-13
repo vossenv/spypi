@@ -42,6 +42,14 @@ class ImageReadException(BaseException):
     pass
 
 
+class PiCamException(BaseException):
+    def __init__(self, message, root_exception):
+        BaseException.__init__(self)
+        self.root_exception = root_exception
+        self.root_cause = str(root_exception)
+        self.message = "{0}.  Root error is code {1}: '{2}'".format(message, code, self.root_cause)
+        self.args = (self.message, root_exception)
+
 class ArducamException(BaseException):
 
     def __init__(self, message, code=None):
@@ -50,6 +58,7 @@ class ArducamException(BaseException):
         self.root_cause = get_arducam_error_name(code) or "unknown"
         self.message = "{0}.  Root error is code {1}: '{2}'".format(message, code, self.root_cause)
         self.args = (self.message, code)
+
 
 def get_arducam_error_name(code):
     val = ast.literal_eval(str(code))

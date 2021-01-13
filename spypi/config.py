@@ -15,7 +15,7 @@ def config_schema() -> Schema:
     from schema import And, Or
     return Schema({
         'device': {
-            'camera': Or('picam', 'arducam', 'usb', 'imupicam'),
+            'camera': Or('picam', 'arducam', 'usb'),
             'device_id': int,
             'frame_size': Or(None, [int, int]),
             'init_delay': Or(float, int),

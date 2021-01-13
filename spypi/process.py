@@ -45,6 +45,10 @@ class ImageProcessor():
         self.log_extra_info = self.camera.log_extra_info = self.config['logging']['log_extra_info']
         self.camera.log_metrics = self.log_metrics
 
+        if config['device']['camera'] != 'arducam' and \
+                config['device']['frame_size'] != config['processing']['xvid_size']:
+            self.logger.warning("Device frame size and xvid size do not match.")
+
     def run(self):
 
         tasks = []
@@ -80,8 +84,8 @@ class ImageProcessor():
                 controller=self.get_pid(self.vid_pid, self.target_video_framerate)
             ))
 
-        if self.send_video:
-            tasks.append(create_task(self.send_directory_video))
+            if self.send_video:
+                tasks.append(create_task(self.send_directory_video))
 
         [t.start() for t in tasks]
 
@@ -108,7 +112,8 @@ class ImageProcessor():
                     fps = round(sum(fps_queue) / interval, 2)
                     delay = controller(fps)
                     if self.log_metrics:
-                        self.logger.info("{0}: {1} frame avg fps: {2} delay: {3}".format(name, interval, fps, delay))
+                        self.logger.info("{0}: {1} frame avg fps: {2} delay: {3}"
+                                         .format(name, interval, fps, round(delay,4)))
                 fc.increment()
                 handle(transform(img, f))
             except IndexError:
