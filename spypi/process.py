@@ -14,7 +14,6 @@ from spypi.error import ImageReadException, ArducamException
 from spypi.model import Connector, VideoStream, ImageManip as im
 from spypi.utils import MultiCounter, start_thread
 
-
 class ImageProcessor():
 
     def __init__(self, config):
@@ -73,8 +72,9 @@ class ImageProcessor():
                 filename_prefix=self.config['connection']['name'],
                 directory=self.recording_directory,
                 max_file_size=self.video_filesize,
-                resolution=self.config['device']['frame_size'],
-                fps=self.target_video_framerate
+                resolution=self.camera.frame_size,
+                fps=self.target_video_framerate,
+                log_metrics = self.log_metrics,
             )
 
             if not isinstance(self.camera, PiCamDirect):
@@ -103,7 +103,7 @@ class ImageProcessor():
                 img = next()
                 if img is None:
                     continue
-                f = fc.get_rate()
+                f = fc.get_rate(2)
                 fps_averages.append(f)
                 if fc.increment():
                     fps = round(sum(fps_averages) / interval, 2)
@@ -111,7 +111,7 @@ class ImageProcessor():
                     if self.log_metrics:
                         self.logger.debug("{0} // framerate: {1} // sleeptime: {2}"
                                           .format(name.capitalize(), fps, round(delay, 4)))
-                    cfps = self.camera.image_counter.get_rate()
+                    cfps = self.camera.image_counter.get_rate(2)
                     if name == 'video' and not self.ignore_warnings and fps >= cfps:
                         self.logger.warning("Warning: stream-to-video fps ({0})> "
                                             "acquisition rate ({1})! Please adjust PID"
@@ -124,8 +124,7 @@ class ImageProcessor():
 
     def apply_stream_transforms(self, image, fps=None):
         image = im.crop(image, self.crop)
-        if self.image_size:
-            image = im.resize(image, self.image_size)
+        image = im.resize(image, self.image_size)
         image = im.rotate(image, self.rotation, resize=False)
         return self.apply_data_bar(image, fps, 'web')
 
@@ -166,7 +165,7 @@ class ImageProcessor():
         return image
 
     def send_directory_video(self):
-        pattern = join(self.recording_directory, "*.avi")
+        pattern = join(self.recording_directory, "*.{}".format(self.camera.codec))
         while True:
             for file in glob.glob(pattern):
                 if file.split(os.sep)[-1].startswith("LOCKED"):

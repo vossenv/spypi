@@ -102,8 +102,8 @@ class MultiCounter():
             self.count = 0
             return True
 
-    def get_rate(self):
-        if len(self.times) < 5:
+    def get_rate(self, rnd=None):
+        if len(self.times) < 2:
             return 0
-        rate = round(len(self.times) / (self.times[-1] - self.times[0]), 2)
-        return rate
+        rate = len(self.times) / (self.times[-1] - self.times[0])
+        return round(rate, rnd) if rnd else rate

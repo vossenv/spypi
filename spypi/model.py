@@ -1,6 +1,7 @@
 import io
 import logging
 import os
+from collections import deque
 from datetime import datetime
 from os.path import join
 
@@ -84,7 +85,8 @@ class ImageManip():
 
 class VideoStream():
 
-    def __init__(self, filename_prefix=None, directory=None, max_file_size=0, resolution=None, fps=20):
+    def __init__(self, filename_prefix=None, directory=None, max_file_size=0, resolution=None,
+                 fps=20, log_metrics=False):
         self.filename_prefix = filename_prefix
         self.directory = directory or os.getcwd()
         self.frames = []
@@ -95,9 +97,13 @@ class VideoStream():
         self.resolution = tuple(resolution or [1280, 964])
         self.logger = logging.getLogger("video")
         self.fps = fps
+        self.log_metrics = log_metrics
         self.output_counter = MultiCounter(20)
         os.makedirs(self.directory, exist_ok=True)
         self.writer = self.get_writer()
+        self.data_rate = MultiCounter(5)
+        self.sizes = deque(maxlen=7)
+        self.cx = 0
 
     def get_filename(self, extension="avi"):
         return join(self.directory, "LOCKED-{0}-{1}.{2}".format(
@@ -115,6 +121,13 @@ class VideoStream():
         if self.output_counter.increment():
             self.disk_size = self.get_filesize(self.filename)
             if round(self.disk_size) >= self.max_file_size:
+                if self.log_metrics:
+                    self.cx += 1
+                    self.data_rate.increment()
+                    self.sizes.append(self.disk_size)
+                    self.logger.debug(
+                        "Data rate: {0} MB/min // count: {1}".format(
+                        round(self.data_rate.get_rate() * 60 * sum(self.sizes) / len(self.sizes), 8), self.cx))
                 self.start_new_file()
                 self.logger.debug(
                     "Max size exceeded ({0}). Start new file: {1}".format(self.disk_size, self.filename))

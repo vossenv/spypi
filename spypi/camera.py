@@ -3,9 +3,12 @@ import logging
 import os
 import time
 from collections import deque
+from datetime import datetime
 
 import ArducamSDK
+import cv2
 import numpy as np
+import picamera
 from picamera import PiCamera
 from picamera.array import PiRGBAnalysis
 
@@ -32,7 +35,7 @@ class Camera():
         self.log_metrics = False
         self.ignore_warnings = False
         self.log_extra_info = False
-        self.images = deque(maxlen=10)
+        self.images = deque(maxlen=5)
         self.image_counter = MultiCounter(50)
 
     @classmethod
@@ -59,7 +62,7 @@ class Camera():
 
             # Just for metrics
             if self.log_metrics:
-                self.logger.debug("Camera // framerate: {}".format(self.image_counter.get_rate()))
+                self.logger.debug("Camera // framerate: {}".format(self.image_counter.get_rate(2)))
 
     def connect(self):
         pass
@@ -77,7 +80,7 @@ class Camera():
         self.logger.info("Restart done!")
 
     def next_image(self):
-        if len(self.images) > 3:
+        if len(self.images) > 1:
             i = self.images[0].copy()
             return i
 
@@ -92,6 +95,13 @@ class PiCam(Camera):
 
     def __init__(self, config):
         super(PiCam, self).__init__(config)
+
+        sz = 32 * round(self.frame_size[0] / 32), 16 * round(self.frame_size[1] / 16)
+
+        if sz != self.frame_size:
+            self.logger.warning("Specified frame size {0} is not divisiblee by 32x16. Rounding to {1}"
+                                .format(self.frame_size, sz))
+            self.frame_size = sz
 
     def connect(self):
         self.logger.info("Connecting to picamera")
@@ -142,16 +152,23 @@ class PiCamDirect(PiCam):
         return np.empty((self.frame_size[1], self.frame_size[0], 3), dtype=np.uint8)
 
     def capture_thread(self):
+        self.cam.annotate_background = picamera.Color('black')
+        self.cam.annotate_text_size = 60
         while True:
+            self.cam.annotate_text = datetime.now().strftime("%Y-%m-%d: %H:%M:%S:%f")[:-5]
             image = self.get_blank_image()
             self.cam.capture(image, 'rgb', use_video_port=True)
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             self.add_image(image)
-            time.sleep(0.15)
+            time.sleep(0.13)
 
     def new_file(self):
         return self.vstream.get_filename(extension=self.codec)
 
     def record(self):
+        data_rate = MultiCounter(10)
+        sizes = deque(maxlen=7)
+        cx = 0
         while self.vstream is None:
             self.logger.info("wait for video stream")
             time.sleep(0.5)
@@ -165,6 +182,12 @@ class PiCamDirect(PiCam):
             self.cam.wait_recording(5)
             disk_size = self.vstream.get_filesize(filename)
             if round(disk_size) >= self.vstream.max_file_size:
+                if self.log_metrics:
+                    cx += 1
+                    data_rate.increment()
+                    sizes.append(disk_size)
+                    self.logger.debug("Data rate: {0} MB/min // count: {1}"
+                                      .format(round(data_rate.get_rate() * 60 * sum(sizes) / len(sizes), 8), cx))
                 old_filename = filename
                 filename = self.new_file()
                 self.logger.debug(
@@ -178,8 +201,9 @@ class PiCamBuffer(PiRGBAnalysis):
         super(PiCamBuffer, self).__init__(camera)
         self.handler = handler
 
-    def analyze(self, a):
-        self.handler(a)
+    def analyze(self, image):
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        self.handler(image)
 
 
 class UsbCam(Camera):
