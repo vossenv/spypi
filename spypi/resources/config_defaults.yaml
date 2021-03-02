@@ -8,7 +8,7 @@ device:
   max_error_rate: 5       # arducam only
   cam_rotate: 0           # Only supported by picam
   codec: h264           # only for picam-direct
-  annotation_scale: 0  # picam-direct - 0 to disable
+  annotation_scale: 30  # picam-direct - 0 to disable
 connection:
   host: http://192.168.50.139:9001
   name: default55

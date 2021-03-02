@@ -100,7 +100,7 @@ class VideoStream():
         self.log_metrics = log_metrics
         self.output_counter = MultiCounter(20)
         os.makedirs(self.directory, exist_ok=True)
-        self.writer = self.get_writer()
+        self.writer = None
         self.data_rate = MultiCounter(5)
         self.sizes = deque(maxlen=7)
         self.cx = 0
@@ -117,6 +117,8 @@ class VideoStream():
         return cv2.VideoWriter(self.filename, cv2.VideoWriter_fourcc('X', 'V', 'I', 'D'), self.fps, self.resolution)
 
     def add_frame(self, frame):
+        if self.writer is None:
+            self.writer = self.get_writer()
         self.writer.write(frame)
         if self.output_counter.increment():
             self.disk_size = self.get_filesize(self.filename)

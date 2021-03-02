@@ -160,7 +160,6 @@ class PiCamDirect(PiCam):
         while True:
             if self.annotation_scale:
                 self.cam.annotate_text = " {} ".format(timestamp())
-
             image = self.get_blank_image()
             self.cam.capture(image, 'rgb', use_video_port=True)
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
