@@ -45,9 +45,11 @@ def config_schema() -> Schema:
             'crop': [int, int, int, int],
             'video_filesize': Or(float, int),
             'rotation': Or(float, int),
-            'data_bar_size': int,
             'image_size': Or(None, [int, int]),
-            'text_pad': int,
+            'data_bar_web': [Or(float, int), int],
+            'data_bar_video': [Or(float, int), int],
+            'annotation_web': int,
+            'annotation_video': int,
         },
         Optional('logging'): {
             'level': Or('info', 'debug', 'INFO', 'DEBUG'),

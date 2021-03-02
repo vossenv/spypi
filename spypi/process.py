@@ -32,7 +32,14 @@ class ImageProcessor():
         self.crop = processing_config['crop']
         self.rotation = processing_config['rotation']
         self.image_size = processing_config['image_size']
-        self.data_bar_size = processing_config['data_bar_size']
+        self.data_bar_sizes = {
+            'video': processing_config['data_bar_video'],
+            'web': processing_config['data_bar_web']
+        }
+        self.annotation_sizes = {
+            'video': processing_config['annotation_video'],
+            'web': processing_config['annotation_web']
+        }
         self.text_pad = processing_config['text_pad']
         self.target_web_framerate = processing_config['target_web_framerate']
         self.target_video_framerate = processing_config['target_video_framerate']
