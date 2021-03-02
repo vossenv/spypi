@@ -3,7 +3,6 @@ import logging
 import os
 import time
 from collections import deque
-from datetime import datetime
 from os.path import join
 
 import cv2
@@ -12,7 +11,8 @@ from simple_pid import PID
 from spypi.camera import Camera, PiCamDirect
 from spypi.error import ImageReadException, ArducamException
 from spypi.model import Connector, VideoStream, ImageManip as im
-from spypi.utils import MultiCounter, start_thread
+from spypi.utils import MultiCounter, start_thread, timestamp
+
 
 class ImageProcessor():
 
@@ -32,8 +32,10 @@ class ImageProcessor():
         self.crop = processing_config['crop']
         self.rotation = processing_config['rotation']
         self.image_size = processing_config['image_size']
-        self.data_bar_size = processing_config['data_bar_size']
-        self.text_pad = processing_config['text_pad']
+        self.data_scaling = {
+            'video': processing_config['data_bar_video'],
+            'web': processing_config['data_bar_web']
+        }
         self.target_web_framerate = processing_config['target_web_framerate']
         self.target_video_framerate = processing_config['target_video_framerate']
         self.show_fps = processing_config['show_fps']
@@ -45,6 +47,7 @@ class ImageProcessor():
         self.camera.log_metrics = self.log_metrics
         self.camera.capture_image = self.send_images
         self.camera.framerate = processing_config['target_video_framerate']
+        self.compute_data_bar_geom()
 
     def run(self):
 
@@ -74,7 +77,7 @@ class ImageProcessor():
                 max_file_size=self.video_filesize,
                 resolution=self.camera.frame_size,
                 fps=self.target_video_framerate,
-                log_metrics = self.log_metrics,
+                log_metrics=self.log_metrics,
             )
 
             if not isinstance(self.camera, PiCamDirect):
@@ -132,36 +135,30 @@ class ImageProcessor():
         image = im.rotate(image, self.rotation)
         return self.apply_data_bar(image, fps, 'video')
 
+    def compute_data_bar_geom(self):
+        for name, size in self.data_scaling.items():
+            ((_, text_height), _) = cv2.getTextSize('XXX', cv2.FONT_HERSHEY_DUPLEX, size[0], 1)
+            self.data_scaling[name].append(text_height)
+
     def apply_data_bar(self, image, fps, name):
 
         h, w, _ = image.shape
-        time = datetime.now().strftime("%Y-%m-%d: %H:%M:%S:%f")[:-5]
-        label = ["{0} @ {1:.2f} FPS".format(time, fps)] if self.show_fps else [time]
+        label = ["{0} @ {1:.2f} FPS".format(
+            timestamp(), fps)] if self.show_fps else [timestamp()]
+
         if self.log_extra_info:
             label.extend(self.camera.extra_info)
 
-        # Size of black rectangle (by % from CFG)
-        bar_size = round(self.data_bar_size * 0.01 * w) if w > 300 else 100
-
-        # Padding around text (shrinks to 2 for small frames)
-        padding = self.text_pad if h > 300 else 2
-
-        # Calculate the text scaling to fit width and height based on specified bar size.
-        # Only run the first time since this value is fixed
-        if not self.text_scaling.get(name):
-            text_scale, text_height = im.compute_text_scale(label, bar_size, padding)
-            vertical_space = text_height * len(label) + (len(label) - 1) * padding
-            self.text_scaling[name] = [text_scale, text_height, vertical_space]
-
-        text_scale = self.text_scaling[name][0]
-        text_height = self.text_scaling[name][1]
-        vspace = self.text_scaling[name][2]
+        text_scale = self.data_scaling[name][0]
+        text_padding = self.data_scaling[name][1]
+        text_height = self.data_scaling[name][2]
+        vspace = text_height * len(label) + (len(label) + 1) * text_padding
 
         # Draw a box of proper height including between line padding
-        image = im.rectangle(image, [w, vspace + 2 * padding], (0, 0, 0))
+        image = im.rectangle(image, [w, vspace], (0, 0, 0))
 
         # Add labels
-        image = im.add_label(image, label, text_height, text_scale, (255, 255, 255), padding)
+        image = im.add_label(image, label, text_height, text_scale, (255, 255, 255), text_padding)
         return image
 
     def send_directory_video(self):

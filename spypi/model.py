@@ -19,19 +19,19 @@ class ImageManip():
         cv2.imshow("stream", image)
         cv2.waitKey(5)
 
-    @staticmethod
-    def compute_text_scale(text, box_w, pad=10):
-        face = cv2.FONT_HERSHEY_DUPLEX
-
-        longest = max(text, key=len)
-
-        ((w1, _), _) = cv2.getTextSize(longest, face, 1, 1)
-        ((w5, _), _) = cv2.getTextSize(longest, face, 5, 1)
-
-        scale = 4 / (w5 - w1) * (box_w - 2 * pad)
-        ((_, hf), _) = cv2.getTextSize(longest, face, scale, 1)
-
-        return scale, hf
+    # @staticmethod
+    # def compute_text_scale(text, box_w, pad=10):
+    #     face = cv2.FONT_HERSHEY_DUPLEX
+    #
+    #     longest = max(text, key=len)
+    #
+    #     ((w1, _), _) = cv2.getTextSize(longest, face, 1, 1)
+    #     ((w5, _), _) = cv2.getTextSize(longest, face, 5, 1)
+    #
+    #     scale = 4 / (w5 - w1) * (box_w - 2 * pad)
+    #     ((_, hf), _) = cv2.getTextSize(longest, face, scale, 1)
+    #
+    #     return scale, hf
 
     @staticmethod
     def add_label(image, text, text_height, scale=1, color=(255, 255, 255), pad=10):
@@ -100,7 +100,7 @@ class VideoStream():
         self.log_metrics = log_metrics
         self.output_counter = MultiCounter(20)
         os.makedirs(self.directory, exist_ok=True)
-        self.writer = self.get_writer()
+        self.writer = None
         self.data_rate = MultiCounter(5)
         self.sizes = deque(maxlen=7)
         self.cx = 0
@@ -117,6 +117,8 @@ class VideoStream():
         return cv2.VideoWriter(self.filename, cv2.VideoWriter_fourcc('X', 'V', 'I', 'D'), self.fps, self.resolution)
 
     def add_frame(self, frame):
+        if self.writer is None:
+            self.writer = self.get_writer()
         self.writer.write(frame)
         if self.output_counter.increment():
             self.disk_size = self.get_filesize(self.filename)

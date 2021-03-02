@@ -23,7 +23,8 @@ def config_schema() -> Schema:
             'arducam_registers': Or(None, And(str, len)),
             'max_error_rate': Or(float, int),
             'cam_rotate': Or(0, 90, 180, 270),
-            'codec': Or('h264')
+            'codec': Or('h264'),
+            'annotation_scale': int,
         },
         Optional('connection'): {
             'name': And(str, len),
@@ -45,9 +46,9 @@ def config_schema() -> Schema:
             'crop': [int, int, int, int],
             'video_filesize': Or(float, int),
             'rotation': Or(float, int),
-            'data_bar_size': int,
             'image_size': Or(None, [int, int]),
-            'text_pad': int,
+            'data_bar_web': [Or(float, int), int],
+            'data_bar_video': [Or(float, int), int],
         },
         Optional('logging'): {
             'level': Or('info', 'debug', 'INFO', 'DEBUG'),
