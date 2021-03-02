@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+[Unit]
+Description=Spypi Service
+[Service]
+User=root
+WorkingDirectory=G:\Repositories\carag\spypi\te
+ExecStart=/bin/bash G:\Repositories\carag\spypi\te/spypi_startup.sh
+SuccessExitStatus=143
+TimeoutStopSec=10
+[Install]
+WantedBy=multi-user.target

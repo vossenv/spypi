@@ -1,0 +1,37 @@
+device:
+  arducam_registers:    # leave blank for defaults - AR0134_960p_Color.json
+  camera: arducam
+  device_id: 0
+  frame_size: [ 1300, 1000 ]
+  init_delay: 1
+  init_retry: 10
+  max_error_rate: 5       # arducam only
+  cam_rotate: 0           # Only supported by picam
+  codec: h264         # only for picam-direct
+connection:
+  host: http://192.168.50.139:9001
+  name: default55
+  timeout: 10
+logging:
+  filename: cam.log
+  level: debug
+  log_stdout: false               # Enables logging of sys.out and sys.err
+  log_metrics: true
+  ignore_warnings: true           # Data len etc
+  log_extra_info: true
+processing:
+  show_fps: true
+  target_video_framerate: 6
+  target_web_framerate: 3
+  video_fr_pid: [ -0.3, 0.3, 0.05, 0, 0.4, 10 ] # p/i/d/min/max/# of frames
+  web_fr_pid: [ -1, 0.3, 0.05, 0, 0.4, 10 ]
+  record_video: true
+  recording_directory: video
+  send_images: true
+  send_video: true
+  video_filesize: 25.0                 # megabytes
+  crop: [ 0, 0, 0, 0 ]     # top, left, bottom, right (%)
+  rotation: 0
+  image_size:      # width, height (for posted images)
+  data_bar_size: 75     # %
+  text_pad: 10

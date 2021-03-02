@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+[Unit]
+Description=Spypi Service
+[Service]
+User=root
+WorkingDirectory={launch_dir}
+ExecStart=/bin/bash {launch_dir}/spypi_startup.sh
+SuccessExitStatus=143
+TimeoutStopSec=10
+[Install]
+WantedBy=multi-user.target

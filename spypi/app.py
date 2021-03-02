@@ -8,11 +8,13 @@ from os.path import join
 
 faulthandler.enable(file=sys.stderr, all_threads=True)
 import click
+import subprocess
 from click_default_group import DefaultGroup
 
 from spypi.config import load_config, ConfigValidationError
 from spypi.resources import get_resource
 from spypi.utils import get_environment, init_logger, is_windows
+
 
 if not is_windows():
     sys.path.insert(0, '/usr/local/lib')
@@ -77,6 +79,31 @@ def cli(ctx):
 def view(ctx, config_filename):
     cfg = init_config(ctx.params, config_filename)
     ImagePlayer(cfg).run()
+
+@cli.command(help="Install as service")
+@click.pass_context
+def install(ctx):
+
+    if not os.path.exists('config.yaml'):
+        prompt_default_config('config.yaml')
+
+    wd = os.getcwd()
+    shutil.copy(get_resource('spypi_startup.sh'), '.')
+    svc = open(get_resource('spypi.service')).read()
+    with open('/etc/systemd/system/spypi.service', 'w') as f:
+        f.write(svc.format(launch_dir="{}".format(wd)))
+
+    subprocess.check_output("systemctl daemon-reload", shell=True)
+    subprocess.check_output("systemctl enable spypi.service", shell=True)
+    subprocess.check_output("chmod 777 -R {}".format(wd), shell=True)
+
+    click.echo("Service installed!")
+    try:
+        subprocess.check_output("sudo service spypi status", shell=True)
+    except subprocess.CalledProcessError as e:
+        click.echo(e.output)
+
+    click.echo("If service loaded successfully, start with 'sudo service spypi start'!")
 
 
 @cli.command(help="Write some test images")
