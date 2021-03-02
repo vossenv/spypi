@@ -5,6 +5,7 @@ import sys
 import threading
 import time
 from collections import deque
+from datetime import datetime
 
 import distro
 import yaml
@@ -12,6 +13,9 @@ import yaml
 from spypi._version import __version__
 from spypi.resources import get_resource
 
+
+def timestamp():
+    return datetime.now().strftime("%Y-%m-%d: %H:%M:%S:%f")[:-5]
 
 def is_windows():
     return platform.system().lower() == "windows"

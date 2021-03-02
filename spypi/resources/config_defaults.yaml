@@ -7,7 +7,8 @@ device:
   init_retry: 10
   max_error_rate: 5       # arducam only
   cam_rotate: 0           # Only supported by picam
-  codec: h264         # only for picam-direct
+  codec: h264           # only for picam-direct
+  annotation_scale: 0  # picam-direct - 0 to disable
 connection:
   host: http://192.168.50.139:9001
   name: default55
@@ -33,5 +34,6 @@ processing:
   crop: [ 0, 0, 0, 0 ]     # top, left, bottom, right (%)
   rotation: 0
   image_size:      # width, height (for posted images)
-  data_bar_size: 75     # %
-  text_pad: 10
+  data_bar_web: [0.8, 10]      # comment to disable
+  data_bar_video: [0.8, 10]    # scale, padding
+

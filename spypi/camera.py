@@ -15,7 +15,7 @@ from picamera.array import PiRGBAnalysis
 from spypi.error import CameraConfigurationException, ArducamException
 from spypi.lib.ImageConvert import convert_image
 from spypi.resources import get_resource
-from spypi.utils import MultiCounter, start_thread
+from spypi.utils import MultiCounter, start_thread, timestamp
 
 
 class Camera():
@@ -137,6 +137,7 @@ class PiCamDirect(PiCam):
     def __init__(self, config):
         super(PiCamDirect, self).__init__(config)
         self.vstream = None
+        self.annotation_scale = config['annotation_scale']
         self.capture_image = False
 
     def start(self):
@@ -153,9 +154,13 @@ class PiCamDirect(PiCam):
 
     def capture_thread(self):
         self.cam.annotate_background = picamera.Color('black')
-        self.cam.annotate_text_size = 60
+        if self.annotation_scale:
+            self.cam.annotate_text_size = self.annotation_scale
+
         while True:
-            self.cam.annotate_text = datetime.now().strftime("%Y-%m-%d: %H:%M:%S:%f")[:-5]
+            if self.annotation_scale:
+                self.cam.annotate_text = " {} ".format(timestamp())
+
             image = self.get_blank_image()
             self.cam.capture(image, 'rgb', use_video_port=True)
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
