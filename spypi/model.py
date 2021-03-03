@@ -9,7 +9,7 @@ import cv2
 import imutils
 import requests
 
-from spypi.utils import MultiCounter
+from spypi.utils import MultiCounter, ddrate
 
 
 class ImageManip():
@@ -18,20 +18,6 @@ class ImageManip():
     def show(image):
         cv2.imshow("stream", image)
         cv2.waitKey(5)
-
-    # @staticmethod
-    # def compute_text_scale(text, box_w, pad=10):
-    #     face = cv2.FONT_HERSHEY_DUPLEX
-    #
-    #     longest = max(text, key=len)
-    #
-    #     ((w1, _), _) = cv2.getTextSize(longest, face, 1, 1)
-    #     ((w5, _), _) = cv2.getTextSize(longest, face, 5, 1)
-    #
-    #     scale = 4 / (w5 - w1) * (box_w - 2 * pad)
-    #     ((_, hf), _) = cv2.getTextSize(longest, face, scale, 1)
-    #
-    #     return scale, hf
 
     @staticmethod
     def add_label(image, text, text_height, scale=1, color=(255, 255, 255), pad=10):
@@ -128,8 +114,8 @@ class VideoStream():
                     self.data_rate.increment()
                     self.sizes.append(self.disk_size)
                     self.logger.debug(
-                        "Data rate: {0} MB/min // count: {1}".format(
-                        round(self.data_rate.get_rate() * 60 * sum(self.sizes) / len(self.sizes), 8), self.cx))
+                        "Data rate: {0} GB/day // count: {1}"
+                            .format(ddrate(self.data_rate.get_rate(), self.sizes), self.cx))
                 self.start_new_file()
                 self.logger.debug(
                     "Max size exceeded ({0}). Start new file: {1}".format(self.disk_size, self.filename))

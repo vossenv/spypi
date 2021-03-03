@@ -3,7 +3,6 @@ import logging
 import os
 import time
 from collections import deque
-from datetime import datetime
 
 import ArducamSDK
 import cv2
@@ -15,7 +14,7 @@ from picamera.array import PiRGBAnalysis
 from spypi.error import CameraConfigurationException, ArducamException
 from spypi.lib.ImageConvert import convert_image
 from spypi.resources import get_resource
-from spypi.utils import MultiCounter, start_thread, timestamp
+from spypi.utils import MultiCounter, start_thread, timestamp, ddrate
 
 
 class Camera():
@@ -190,8 +189,9 @@ class PiCamDirect(PiCam):
                     cx += 1
                     data_rate.increment()
                     sizes.append(disk_size)
-                    self.logger.debug("Data rate: {0} MB/min // count: {1}"
-                                      .format(round(data_rate.get_rate() * 60 * sum(sizes) / len(sizes), 8), cx))
+                    self.logger.debug(
+                        "Data rate: {0} GB/day // count: {1}".format(ddrate(data_rate.get_rate(), sizes), cx))
+
                 old_filename = filename
                 filename = self.new_file()
                 self.logger.debug(

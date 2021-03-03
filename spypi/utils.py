@@ -17,6 +17,11 @@ from spypi.resources import get_resource
 def timestamp():
     return datetime.now().strftime("%Y-%m-%d: %H:%M:%S:%f")[:-5]
 
+#hz in mb/s
+def ddrate(hz, measuerments):
+    return round(hz * 3600 * 24 * 0.001 * sum(measuerments) / len(measuerments), 8)
+
+
 def is_windows():
     return platform.system().lower() == "windows"
 

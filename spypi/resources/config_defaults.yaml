@@ -11,7 +11,7 @@ device:
   annotation_scale: 30  # picam-direct - 0 to disable
 connection:
   host: http://192.168.50.139:9001
-  name: default55
+  name: default_cam
   timeout: 10
 logging:
   filename: cam.log
@@ -33,7 +33,7 @@ processing:
   video_filesize: 25.0                 # megabytes
   crop: [ 0, 0, 0, 0 ]     # top, left, bottom, right (%)
   rotation: 0
-  image_size:      # width, height (for posted images)
+  image_size:  #[500, 500]     # width, height (for posted images)
   data_bar_web: [0.8, 10]      # comment to disable
   data_bar_video: [0.8, 10]    # scale, padding
 
