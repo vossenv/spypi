@@ -27,7 +27,7 @@ class Camera():
         self.init_retry = config['init_retry']
         self.max_error_rate = config['max_error_rate']
         self.cam_rotate = config['cam_rotate']
-        self.codec = config['codec']
+        self.codec = config['codec'] if self.camera_type == "picam-direct" else "avi"
         self.extra_info = []
         self.framerate = 30
         self.logger = logging.getLogger(self.camera_type)
